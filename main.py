@@ -1020,10 +1020,10 @@ def main():
     n= 20                   #number of switches
     hosts = 30              #number of hosts
     nbOfTSNFlows = 1000     #number of TSN flows
-    pFlow = 1             #the probability that a flow will arrive at each time unit
+    pFlow = 1               #the probability that a flow will arrive at each time unit
     p= 0.3                  #the probability of having an edge between any two nodes
     k = 30                  #the number of paths that will be chosen between each source and destination
-    timeSlotsAmount = 40     #how many time slots in the schedule --> the length of the schedule
+    timeSlotsAmount = 40    #how many time slots in the schedule --> the length of the schedule
     TSNCountWeight = 1/3
     bandwidthWeight = 1/3
     hopCountWeight = 1/3
@@ -1032,7 +1032,7 @@ def main():
     # Creating the graphs #
     ##########################################
     G = nx.erdos_renyi_graph(n,p)
-    for node in range(n):
+    for node in range(n):   #This for loop to remove any unconnected node
         if(nx.degree(G,node)==0):
             G.remove_node(node)
     ##########################################
@@ -1055,6 +1055,7 @@ def main():
     ##########################################
 
     G = G.to_directed(False)
+
 
     # pre-routing phase #
     ##########################################
