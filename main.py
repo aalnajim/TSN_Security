@@ -391,7 +391,7 @@ def findcandidatePaths(paths,delay):
 
     return candidatePaths
 
-def computeMeasurments(G, candidatePaths):
+def computeMeasurments(G, candidatePaths):  #this method will compute the path bandwidth and # of TSN flows based on the path links' measurments
     for path in candidatePaths:
         TSNCounter = 0
         bandwidth = 3000
@@ -406,7 +406,7 @@ def computeMeasurments(G, candidatePaths):
         path.TSNFlowCounter = TSNCounter
         path.bandwidth = bandwidth
 
-def BestValues(candidatePaths):
+def BestValues(candidatePaths):     # return the smallest values for normalization
     maxBandwidth = 0
     minHopCount = 1000
     minTSNCount = 10000
@@ -1019,11 +1019,11 @@ def main():
     ##########################################
     n= 20                   #number of switches
     hosts = 30              #number of hosts
-    nbOfTSNFlows = 1000     #number of TSN flows
+    nbOfTSNFlows = 550     #number of TSN flows
     pFlow = 1               #the probability that a flow will arrive at each time unit
     p= 0.3                  #the probability of having an edge between any two nodes
     k = 30                  #the number of paths that will be chosen between each source and destination
-    timeSlotsAmount = 40    #how many time slots in the schedule --> the length of the schedule
+    timeSlotsAmount = 4    #how many time slots in the schedule --> the length of the schedule
     TSNCountWeight = 1/3
     bandwidthWeight = 1/3
     hopCountWeight = 1/3
@@ -1108,7 +1108,7 @@ def main():
 
 
 
-    waitiingTimesforTransmissions = []
+    waitiingTimesforTransmissions = []              #a list of times the hosts will wait from sending the connection requests until begin transmitting
     timeSlots = createTimeSlots(timeSlotsAmount)    #the list of time slots
     flowsList = []                                  #list of all created TSN flows
     # scheduledFlowsSWOTS_AEAP = []                   #list of all scheduled TSN flows using SWOTS (As Early As Possible)
@@ -1134,7 +1134,7 @@ def main():
 
 
     while(True):
-        if counter >= nbOfTSNFlows:
+        if counter >= nbOfTSNFlows:         # if we reached the number of TSN flows, stop
             break
         changeLinksBandwidth(G)             #change the link bandwidth randomly, in future it will be based on the best effort streams
         x = random.random()
@@ -1155,9 +1155,9 @@ def main():
             while s==d:
                 s = random.choice(hostsList)
                 d = random.choice(hostsList)
-            tempTSNFlow = TSNFlow.TSNFlow(counter,s,d)
-            flowsList.append((tempTSNFlow,time))
-            counter = counter + 1
+            tempTSNFlow = TSNFlow.TSNFlow(counter,s,d)      #generate a TSN flow from a randomly selected source to a randomly selected destination
+            flowsList.append((tempTSNFlow,time))            #add the generated TSN flow and the generation time to the TSN flows list
+            counter = counter + 1                           #increase the counter by 1
             # tempScheduledSWOTS_AEAP = False
             tempScheduledSWOTS_AEAP_WS = False
             # tempScheduledSWOTS_ASAP = False
@@ -1177,9 +1177,9 @@ def main():
 
                 ##########################################
 
-                if(tempRouted and flag ==0):
+                if(tempRouted and flag == 0):
                     routedCounter = routedCounter + 1
-                else:
+                elif(not(tempRouted)):  #This statement was else (which will prevent the method
                     break
                 flag = 1
 
@@ -1433,7 +1433,7 @@ def main():
 
 
     # print('nb of scheduled flows using SWOTS_AEAP: {}'.format(scheduledCounterSWOTS_AEAP))
-    # print('nb of scheduled flows using SWOTS_AEAP_WS: {}'.format(scheduledCounterSWOTS_AEAP_WS))
+    print('nb of scheduled flows using SWOTS_AEAP_WS: {}'.format(scheduledCounterSWOTS_AEAP_WS))
     # print('nb of scheduled flows using SWTS: {}'.format(scheduledCounterSWTS))
     # print('nb of scheduled flows using SWOTS_ASAP: {}'.format(scheduledCounterSWOTS_ASAP))
     # print('nb of scheduled flows using SWOTS_ASAP_WS: {}'.format(scheduledCounterSWOTS_ASAP_WS))
