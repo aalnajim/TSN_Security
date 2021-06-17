@@ -1006,188 +1006,198 @@ def countGates_ASAP_WS(G, scheduledSWOTS):
 
 
 
-def main():
-
-    # Reading the simulation parameters #
-    ##########################################
-    # n = int(input('Enter the value of n: '))
-    # p = float(input('Enter the value of p: '))
-    ##########################################
-
-
-    # Setting the simulation parameters #
-    ##########################################
-    n= 20                   #number of switches
-    hosts = 30              #number of hosts
-    nbOfTSNFlows = 550     #number of TSN flows
-    pFlow = 1               #the probability that a flow will arrive at each time unit
-    p= 0.3                  #the probability of having an edge between any two nodes
-    k = 30                  #the number of paths that will be chosen between each source and destination
-    timeSlotsAmount = 4    #how many time slots in the schedule --> the length of the schedule
-    TSNCountWeight = 1/3
-    bandwidthWeight = 1/3
-    hopCountWeight = 1/3
-    ##########################################
-
-    # Creating the graphs #
-    ##########################################
-    G = nx.erdos_renyi_graph(n,p)
-    for node in range(n):   #This for loop to remove any unconnected node
-        if(nx.degree(G,node)==0):
-            G.remove_node(node)
-    ##########################################
-
-    # Draw the graph #
-    ##########################################
-    plt.subplot(121)
-    nx.draw(G,with_labels = True)
-    plt.subplot(122)
-    nx.draw(G, with_labels = True, pos=nx.circular_layout(G), nodecolor='r', edge_color='b')
-    plt.show()
-    ##########################################
-
-
-    # Filling the values randomly #
-    ##########################################
-    transmissionDelays, linkMeasurments, hostsList = rand(G, hosts,n)
-    nx.set_node_attributes(G, transmissionDelays)
-    nx.set_edge_attributes(G,linkMeasurments)
-    ##########################################
-
-    G = G.to_directed(False)
-
-
-    # pre-routing phase #
-    ##########################################
-    # oldStart = timer() speed
-    # oldFirstKthPaths = findKthPathold(G, hostsList, k)
-    # oldEnd = timer()
-    # oldThelongestTimeEver = oldEnd - oldStart
-
-    convertProcDelayToComulativeDelay(G,1)  # after this statment procDelay = proc Delay of next hop + trans Delay of next hop + progation delay of the link
-    start = timer()
-    firstKthPaths = findKthPath(G,hostsList,k) # The first kth paths between all the hosts (based on path delay)
-    end = timer()
-    preRoutingPhaseTime = end - start
-
-    # start2 = timer() speed
-    # firstKthPaths2 = findKthPath2(G,hostsList,k) # The first kth paths between all the hosts (based on path delay)
-    # end2 = timer()
-    # ThelongestTimeEver2 = end2 - start2
-
-    # anotherStart = timer() speed
-    # anotherFirstKthPaths = findKthPathP(G,hostsList,k)
-    # anotherEnd= timer()
-    # anotherThelongestTimeEver = anotherEnd - anotherStart
-
-    # anotherStart2 = timer() speed
-    # anotherFirstKthPaths2 = findKthPathP2(G,hostsList,k)
-    # anotherEnd2= timer()
-    # anotherThelongestTimeEver2 = anotherEnd2 - anotherStart2
-    convertProcDelayToComulativeDelay(G,0) #after this statment procDelay = proc Delay of next hop + propgation Delay of the link
-
-    # convertProcDelayToComulativeDelay(G,
-    #                                   1)  # after this statment procDelay = proc Delay of next hop + trans Delay of next hop + progation delay of the link
-    # convertProcDelayToComulativeDelay(G,0) #after this statment procDelay = proc Delay of next hop + propgation Delay of the link
-    # print(((end-start)/60)/60)
-
-
-    ##########################################
-
-    ##########################################
-
-    CLength = 0           #the schedule cycle length
-    timeSlotLength = 0    #the length of each time slot
-
-    #Setting the values:
-    timeSlotLength = computeTimeSlotLength(G,hostsList, firstKthPaths)
-    CLength = timeSlotsAmount * timeSlotLength
 
 
 
+def testSecurityImpact(typeOfSecurityAttack, attackRate, attackStartTime):
+    if(typeOfSecurityAttack == 0):
+        # Reading the simulation parameters #
+        ##########################################
+        # n = int(input('Enter the value of n: '))
+        # p = float(input('Enter the value of p: '))
+        ##########################################
 
+        # Setting the simulation parameters #
+        ##########################################
+        n = 20  # number of switches
+        hosts = 30  # number of hosts
+        nbOfTSNFlows = 550  # number of TSN flows
+        pFlow = 1  # the probability that a flow will arrive at each time unit
+        p = 0.3  # the probability of having an edge between any two nodes
+        k = 30  # the number of paths that will be chosen between each source and destination
+        timeSlotsAmount = 4  # how many time slots in the schedule --> the length of the schedule
+        TSNCountWeight = 1 / 3
+        bandwidthWeight = 1 / 3
+        hopCountWeight = 1 / 3
+        ##########################################
 
+        # Creating the graphs #
+        ##########################################
+        G = nx.erdos_renyi_graph(n, p)
+        for node in range(n):  # This for loop to remove any unconnected node
+            if (nx.degree(G, node) == 0):
+                G.remove_node(node)
+        ##########################################
 
-    waitiingTimesforTransmissions = []              #a list of times the hosts will wait from sending the connection requests until begin transmitting
-    timeSlots = createTimeSlots(timeSlotsAmount)    #the list of time slots
-    flowsList = []                                  #list of all created TSN flows
-    # scheduledFlowsSWOTS_AEAP = []                   #list of all scheduled TSN flows using SWOTS (As Early As Possible)
-    scheduledFlowsSWOTS_AEAP_WS = []                #list of all scheduled TSN flows using SWOTS (As Early As Possible) with queueing delays allowed
-    # scheduledFlowsSWOTS_ASAP = []                   #list of all scheduled TSN flows using SWOTS (As Soon As Possible)
-    # scheduledFlowsSWOTS_ASAP_WS = []                # list of all scheduled TSN flows using SWOTS (As Soon As Possible)
-    # scheduledFlowsSWTS =[]                          #list of all scheduled TSN flows using SWTS
-    counter = 0                                     #count the created TSN flows
-    # scheduledCounterSWOTS_AEAP = 0                  #count the scheduled TSN flows (routed and scheduled) using SWOTS (As Early As Possible)
-    scheduledCounterSWOTS_AEAP_WS = 0               #count the scheduled TSN flows (routed and scheduled) using SWOTS (As Early As Possible) with queueing delays allowed
-    # scheduledCounterSWOTS_ASAP = 0                  #count the scheduled TSN flows (routed and scheduled) using SWOTS (As Soon As Possible)
-    # scheduledCounterSWOTS_ASAP_WS = 0                  # count the scheduled TSN flows (routed and scheduled) using SWOTS (As Soon As Possible)
-    # scheduledCounterSWTS = 0                        #count the scheduled TSN flows (routed and scheduled) using SWTS
-    routedCounter = 0                               #count the routed TSN flows, but not scheduled
-    time = 0                                        #Track the arrival time of TSN flows
-    routingExecutionTimes = []                      #a list of the execution times of the routing algorithm for all flows in microseconds [(1.3,True),(0.7,False)]
-    # SWOTS_AEAPSchedulingExectionTimes = []          #a list of the execution times of the SWOTS (As Early As Possible) algorithm for all flows in microseconds [(1.3,True),(0.7,False)]
-    SWOTS_AEAP_WSSchedulingExectionTimes = []       #a list of the execution times of the SWOTS (As Early As Possible) algorithm for all flows in microseconds [(1.3,True),(0.7,False)]
-    # SWOTS_ASAPSchedulingExectionTimes = []          #a list of the execution times of the SWOTS (As Soon As Possible) algorithm for all flows in microseconds [(1.3,True),(0.7,False)]
-    # SWOTS_ASAP_WSSchedulingExectionTimes = []            #a list of the execution times of the SWOTS (As Soon As Possible) algorithm for all flows in microseconds [(1.3,True),(0.7,False)]
-    # SWTSSchedulingExectionTimes = []                #a list of the execution times of the SWTS algorithm for all flows in microseconds [(1.3,True),(0.7,False)]
+        # Draw the graph #
+        ##########################################
+        plt.subplot(121)
+        nx.draw(G, with_labels=True)
+        plt.subplot(122)
+        nx.draw(G, with_labels=True, pos=nx.circular_layout(G), nodecolor='r', edge_color='b')
+        plt.show()
+        ##########################################
 
+        # Filling the values randomly #
+        ##########################################
+        transmissionDelays, linkMeasurments, hostsList = rand(G, hosts, n)
+        nx.set_node_attributes(G, transmissionDelays)
+        nx.set_edge_attributes(G, linkMeasurments)
+        ##########################################
 
+        G = G.to_directed(False)
 
-    while(True):
-        if counter >= nbOfTSNFlows:         # if we reached the number of TSN flows, stop
-            break
-        changeLinksBandwidth(G)             #change the link bandwidth randomly, in future it will be based on the best effort streams
-        x = random.random()
-        if(x<=pFlow):
+        # pre-routing phase #
+        ##########################################
+        # oldStart = timer() speed
+        # oldFirstKthPaths = findKthPathold(G, hostsList, k)
+        # oldEnd = timer()
+        # oldThelongestTimeEver = oldEnd - oldStart
 
+        convertProcDelayToComulativeDelay(G,
+                                          1)  # after this statment procDelay = proc Delay of next hop + trans Delay of next hop + progation delay of the link
+        start = timer()
+        firstKthPaths = findKthPath(G, hostsList, k)  # The first kth paths between all the hosts (based on path delay)
+        end = timer()
+        preRoutingPhaseTime = end - start
 
-            # # this for loop to update the paths measurments
-            # for s in hostsList:
-            #     for d in hostsList:
-            #         if(s.id == d.id):
-            #             continue
-            #         paths = firstKthPaths[s.id,d.id]
-            #         computeMeasurments(G,paths)
+        # start2 = timer() speed
+        # firstKthPaths2 = findKthPath2(G,hostsList,k) # The first kth paths between all the hosts (based on path delay)
+        # end2 = timer()
+        # ThelongestTimeEver2 = end2 - start2
 
+        # anotherStart = timer() speed
+        # anotherFirstKthPaths = findKthPathP(G,hostsList,k)
+        # anotherEnd= timer()
+        # anotherThelongestTimeEver = anotherEnd - anotherStart
 
-            s=0
-            d=0
-            while s==d:
-                s = random.choice(hostsList)
-                d = random.choice(hostsList)
-            tempTSNFlow = TSNFlow.TSNFlow(counter,s,d)      #generate a TSN flow from a randomly selected source to a randomly selected destination
-            flowsList.append((tempTSNFlow,time))            #add the generated TSN flow and the generation time to the TSN flows list
-            counter = counter + 1                           #increase the counter by 1
-            # tempScheduledSWOTS_AEAP = False
-            tempScheduledSWOTS_AEAP_WS = False
-            # tempScheduledSWOTS_ASAP = False
-            # tempScheduledSWOTS_ASAP_WS = False
-            # tempScheduledSWTS = False
-            tempRoutingList = firstKthPaths
-            flag = 0
-            while(
-                    tempScheduledSWOTS_AEAP_WS == False #or tempScheduledSWOTS_AEAP == False or tempScheduledSWTS == False or tempScheduledSWOTS_ASAP_WS == False or tempScheduledSWOTS_ASAP == False
-            ):
-                # Path-Selection phase #
-                ##########################################
-                start = timer()
-                tempRouted, candidatePaths = pathSelection(G, tempTSNFlow, tempRoutingList, TSNCountWeight, bandwidthWeight, hopCountWeight, flag)
-                end = timer()
-                routingExecutionTimes.append((((end - start) * 1000 * 1000),tempRouted))
+        # anotherStart2 = timer() speed
+        # anotherFirstKthPaths2 = findKthPathP2(G,hostsList,k)
+        # anotherEnd2= timer()
+        # anotherThelongestTimeEver2 = anotherEnd2 - anotherStart2
+        convertProcDelayToComulativeDelay(G,
+                                          0)  # after this statment procDelay = proc Delay of next hop + propgation Delay of the link
 
-                ##########################################
+        # convertProcDelayToComulativeDelay(G,
+        #                                   1)  # after this statment procDelay = proc Delay of next hop + trans Delay of next hop + progation delay of the link
+        # convertProcDelayToComulativeDelay(G,0) #after this statment procDelay = proc Delay of next hop + propgation Delay of the link
+        # print(((end-start)/60)/60)
 
-                if(tempRouted and flag == 0):
-                    routedCounter = routedCounter + 1
-                elif(not(tempRouted)):  #This statement was else (which will prevent the method
-                    break
-                flag = 1
+        ##########################################
 
-                for path in candidatePaths:
-                    if (path == tempTSNFlow.path):
-                        candidatePaths.remove(path)
-                tempRoutingList = candidatePaths
+        ##########################################
 
+        CLength = 0  # the schedule cycle length
+        timeSlotLength = 0  # the length of each time slot
+
+        # Setting the values:
+        timeSlotLength = computeTimeSlotLength(G, hostsList, firstKthPaths)
+        CLength = timeSlotsAmount * timeSlotLength
+
+        waitiingTimesforTransmissions = []  # a list of times the hosts will wait from sending the connection requests until begin transmitting
+        timeSlots = createTimeSlots(timeSlotsAmount)  # the list of time slots
+        flowsList = []  # list of all created TSN flows
+        # scheduledFlowsSWOTS_AEAP = []                   #list of all scheduled TSN flows using SWOTS (As Early As Possible)
+        scheduledFlowsSWOTS_AEAP_WS = []  # list of all scheduled TSN flows using SWOTS (As Early As Possible) with queueing delays allowed
+        # scheduledFlowsSWOTS_ASAP = []                   #list of all scheduled TSN flows using SWOTS (As Soon As Possible)
+        # scheduledFlowsSWOTS_ASAP_WS = []                # list of all scheduled TSN flows using SWOTS (As Soon As Possible)
+        # scheduledFlowsSWTS =[]                          #list of all scheduled TSN flows using SWTS
+        counter = 0         # count the created real TSN flows
+        counterTotal = 0    # count the total created flows (real and fake)
+        # scheduledCounterSWOTS_AEAP = 0                  #count the scheduled TSN flows (routed and scheduled) using SWOTS (As Early As Possible)
+        scheduledCounterSWOTS_AEAP_WS = 0  # count the scheduled TSN flows (routed and scheduled) using SWOTS (As Early As Possible) with queueing delays allowed
+        # scheduledCounterSWOTS_ASAP = 0                  #count the scheduled TSN flows (routed and scheduled) using SWOTS (As Soon As Possible)
+        # scheduledCounterSWOTS_ASAP_WS = 0                  # count the scheduled TSN flows (routed and scheduled) using SWOTS (As Soon As Possible)
+        # scheduledCounterSWTS = 0                        #count the scheduled TSN flows (routed and scheduled) using SWTS
+        routedCounter = 0  # count the routed real TSN flows, but not scheduled
+        totalRoutedCounter = 0  # count the total routed TSN flows (real and fake), but not scheduled
+        time = 0  # Track the arrival time of TSN flows
+        routingExecutionTimes = []  # a list of the execution times of the routing algorithm for all flows in microseconds [(1.3,True),(0.7,False)]
+        # SWOTS_AEAPSchedulingExectionTimes = []          #a list of the execution times of the SWOTS (As Early As Possible) algorithm for all flows in microseconds [(1.3,True),(0.7,False)]
+        SWOTS_AEAP_WSSchedulingExectionTimes = []  # a list of the execution times of the SWOTS (As Early As Possible) algorithm for all flows in microseconds [(1.3,True),(0.7,False)]
+        # SWOTS_ASAPSchedulingExectionTimes = []          #a list of the execution times of the SWOTS (As Soon As Possible) algorithm for all flows in microseconds [(1.3,True),(0.7,False)]
+        # SWOTS_ASAP_WSSchedulingExectionTimes = []            #a list of the execution times of the SWOTS (As Soon As Possible) algorithm for all flows in microseconds [(1.3,True),(0.7,False)]
+        # SWTSSchedulingExectionTimes = []                #a list of the execution times of the SWTS algorithm for all flows in microseconds [(1.3,True),(0.7,False)]
+        theAmountofFakeFlows = attackRate * nbOfTSNFlows
+        while (True):
+            if counterTotal >= nbOfTSNFlows + theAmountofFakeFlows:  # if we reached the number of TSN flows, stop
+                break
+            elif (counter > nbOfTSNFlows):
+                attackRate = 1
+            changeLinksBandwidth(
+                G)  # change the link bandwidth randomly, in future it will be based on the best effort streams
+            x = random.random()
+            if (x <= pFlow):
+
+                # # this for loop to update the paths measurments
+                # for s in hostsList:
+                #     for d in hostsList:
+                #         if(s.id == d.id):
+                #             continue
+                #         paths = firstKthPaths[s.id,d.id]
+                #         computeMeasurments(G,paths)
+
+                s = 0
+                d = 0
+                while s == d:
+                    s = random.choice(hostsList)
+                    d = random.choice(hostsList)
+                tempTSNFlow = TSNFlow.TSNFlow(counter, s,
+                                              d)  # generate a TSN flow from a randomly selected source to a randomly selected destination
+                flowsList.append(
+                    (tempTSNFlow, time))  # add the generated TSN flow and the generation time to the TSN flows list
+                counterTotal = counterTotal + 1
+                fakeFlow = False                 # this parameter to indicate if the flow is real or generated by the attacker
+                x = random.random()
+
+                if (x <= attackRate and counter/nbOfTSNFlows>attackStartTime):
+                    fakeFlow = True
+                if(not fakeFlow):
+                    counter = counter + 1  # increase the counter by 1
+                # tempScheduledSWOTS_AEAP = False
+                tempScheduledSWOTS_AEAP_WS = False
+                # tempScheduledSWOTS_ASAP = False
+                # tempScheduledSWOTS_ASAP_WS = False
+                # tempScheduledSWTS = False
+                tempRoutingList = firstKthPaths
+                flag = 0
+                while (
+                        tempScheduledSWOTS_AEAP_WS == False
+                # or tempScheduledSWOTS_AEAP == False or tempScheduledSWTS == False or tempScheduledSWOTS_ASAP_WS == False or tempScheduledSWOTS_ASAP == False
+                ):
+                    # Path-Selection phase #
+                    ##########################################
+                    start = timer()
+                    tempRouted, candidatePaths = pathSelection(G, tempTSNFlow, tempRoutingList, TSNCountWeight,
+                                                               bandwidthWeight, hopCountWeight, flag)
+                    end = timer()
+                    routingExecutionTimes.append((((end - start) * 1000 * 1000), tempRouted))
+
+                    ##########################################
+
+                    if (tempRouted and flag == 0):
+                        totalRoutedCounter = totalRoutedCounter + 1
+                        if ((not fakeFlow)):
+                            routedCounter = routedCounter + 1
+                    #elif (not (tempRouted)):  # This statement was else (which will prevent the method)
+                    else:
+                        break
+                    flag = 1
+
+                    for path in candidatePaths:
+                        if (path == tempTSNFlow.path):
+                            candidatePaths.remove(path)
+                    tempRoutingList = candidatePaths
 
                     # print('Flow ({}) from Source ({}) to destination ({}) with maximum delay = ({}) routed through {}'.format(tempTSNFlow.id,tempTSNFlow.source.id,tempTSNFlow.destniation.id,tempTSNFlow.flowMaxDelay,tempTSNFlow.path.nodes))
                     # if len(candidatePaths) == 0:
@@ -1235,602 +1245,567 @@ def main():
                     #         G[tempTSNFlow.path.nodes.__getitem__(index)][tempTSNFlow.path.nodes.__getitem__(index + 1)]['nbOfTSN'] = G[tempTSNFlow.path.nodes.__getitem__(index)][tempTSNFlow.path.nodes.__getitem__(index + 1)]['nbOfTSN'] +1
                     # print('==========================')
 
-
-
-                # if(not tempScheduledSWOTS_AEAP):
-                #     if(len(flowsList) == 0):
-                #         FTT = time
-                #     else:
-                #         FTT = flowsList.__getitem__(0).__getitem__(1)
-                #
-                #     # Scheduling WithOut Time Slots As Early As Possible (SWOTS_AEAP) #
-                #     ##########################################
-                #     start = timer()
-                #     tempScheduledSWOTS_AEAP = SWOTS_AEAP(G, tempTSNFlow, scheduledFlowsSWOTS_AEAP, CLength)
-                #     end = timer()
-                #     SWOTS_AEAPSchedulingExectionTimes.append((((end - start) * 1000 * 1000), tempScheduledSWOTS_AEAP))
-                #     ##########################################
-                #     # print((end - start) * 1000 * 1000)
-                #
-                #     if(tempScheduledSWOTS_AEAP):
-                #
-                #         waitiingTimesforTransmissions.append(((time - FTT + 16000) % CLength,
-                #                                               scheduledFlowsSWOTS_AEAP.__getitem__(
-                #                                                   len(scheduledFlowsSWOTS_AEAP) - 1)[
-                #                                                   1]))  # this line to compute the average waiting time until transmission
-                #
-                #         scheduledCounterSWOTS_AEAP = scheduledCounterSWOTS_AEAP + 1
-                #         for index in range(len(tempTSNFlow.path.nodes)):
-                #             if (index == 0 or index > len(tempTSNFlow.path.nodes) - 3):
-                #                 continue
-                #             G[tempTSNFlow.path.nodes.__getitem__(index)][tempTSNFlow.path.nodes.__getitem__(index + 1)][
-                #         'nbOfTSN'] = \
-                #             G[tempTSNFlow.path.nodes.__getitem__(index)][tempTSNFlow.path.nodes.__getitem__(index + 1)][
-                #         'nbOfTSN'] + 1
-
-
-
-
-                if(not tempScheduledSWOTS_AEAP_WS):
-                    if(len(flowsList) == 0):
-                        FTT = time
-                    else:
-                        FTT = flowsList.__getitem__(0).__getitem__(1)
-
-                    # Scheduling WithOut Time Slots As Early As Possible With Stops (Queuing Delays) (SWOTS_AEAP_WS) #
-                    ##########################################
-                    start = timer()
-                    tempScheduledSWOTS_AEAP_WS = SWOTS_AEAP_WS(G, tempTSNFlow, scheduledFlowsSWOTS_AEAP_WS, CLength)
-                    end = timer()
-                    SWOTS_AEAP_WSSchedulingExectionTimes.append((((end - start) * 1000 * 1000), tempScheduledSWOTS_AEAP_WS))
-                    ##########################################
-                    # print((end - start) * 1000 * 1000)
-
-                    if(tempScheduledSWOTS_AEAP_WS):
-
-                        waitiingTimesforTransmissions.append(((time - FTT + 16000) % CLength,
-                                                              scheduledFlowsSWOTS_AEAP_WS.__getitem__(
-                                                                  len(scheduledFlowsSWOTS_AEAP_WS) - 1)[
-                                                                  1]))  # this line to compute the average waiting time until transmission
-
-                        scheduledCounterSWOTS_AEAP_WS = scheduledCounterSWOTS_AEAP_WS + 1
-                        for index in range(len(tempTSNFlow.path.nodes)):
-                            if (index == 0 or index > len(tempTSNFlow.path.nodes) - 3):
-                                continue
-                            G[tempTSNFlow.path.nodes.__getitem__(index)][tempTSNFlow.path.nodes.__getitem__(index + 1)][
-                        'nbOfTSN'] = \
-                            G[tempTSNFlow.path.nodes.__getitem__(index)][tempTSNFlow.path.nodes.__getitem__(index + 1)][
-                        'nbOfTSN'] + 1
-
-
-
-                # if(not tempScheduledSWOTS_ASAP_WS):
-                #     if(len(flowsList)==0):
-                #         FTT = time
-                #     else:
-                #         FTT = flowsList.__getitem__(0).__getitem__(1)
-                #     # Scheduling WithOut Time Slots As Soon As Possible With Stops (Queuing Delays) (SWOTS_ASAP_WS) #
-                #     ##########################################
-                #     start = timer()
-                #     tempScheduledSWOTS_ASAP_WS = SWOTS_ASAP_WS(G, tempTSNFlow, scheduledFlowsSWOTS_ASAP_WS, CLength,time,FTT)
-                #     end = timer()
-                #     SWOTS_ASAP_WSSchedulingExectionTimes.append((((end - start) * 1000 * 1000), tempScheduledSWOTS_ASAP_WS))
-                #     ##########################################
-                #     # print((end - start) * 1000 * 1000)
-                #
-                #     if(tempScheduledSWOTS_ASAP_WS):
-                #
-                #         # waitiingTimesforTransmissions.append(((time - FTT + 16000) % CLength,
-                #         #                                       scheduledFlowsSWOTS_ASAP_WS.__getitem__(
-                #         #                                           len(scheduledFlowsSWOTS_ASAP_WS) - 1)[
-                #         #                                           1]))  # this line to compute the average waiting time until transmission
-                #
-                #         scheduledCounterSWOTS_ASAP_WS = scheduledCounterSWOTS_ASAP_WS + 1
-                #         for index in range(len(tempTSNFlow.path.nodes)):
-                #             if (index == 0 or index > len(tempTSNFlow.path.nodes) - 3):
-                #                 continue
-                #             G[tempTSNFlow.path.nodes.__getitem__(index)][tempTSNFlow.path.nodes.__getitem__(index + 1)][
-                #         'nbOfTSN'] = \
-                #             G[tempTSNFlow.path.nodes.__getitem__(index)][tempTSNFlow.path.nodes.__getitem__(index + 1)][
-                #         'nbOfTSN'] + 1
-
-
-
-                # if(not tempScheduledSWOTS_ASAP):
-                #     if(len(flowsList) == 0):
-                #         FTT = time
-                #     else:
-                #         FTT = flowsList.__getitem__(0).__getitem__(1)
-                #
-                #     # Scheduling WithOut Time Slots As Soon As Possible (SWOTS_ASAP) #
-                #     ##########################################
-                #     start = timer()
-                #     tempScheduledSWOTS_ASAP = SWOTS_ASAP(G, tempTSNFlow, scheduledFlowsSWOTS_ASAP, CLength, time, FTT)
-                #     end = timer()
-                #     SWOTS_ASAPSchedulingExectionTimes.append((((end - start) * 1000 * 1000), tempScheduledSWOTS_ASAP))
-                #     ##########################################
-                #     # print((end - start) * 1000 * 1000)
-                #
-                #
-                #     if(tempScheduledSWOTS_ASAP):
-                #
-                #         # waitiingTimesforTransmissions.append(((time-FTT+16000)%CLength,scheduledFlowsSWOTS_ASAP.__getitem__(len(scheduledFlowsSWOTS_ASAP)-1)[1])) # this line to compute the average waiting time until transmission
-                #
-                #         scheduledCounterSWOTS_ASAP = scheduledCounterSWOTS_ASAP + 1
-                #         for index in range(len(tempTSNFlow.path.nodes)):
-                #             if (index == 0 or index > len(tempTSNFlow.path.nodes) - 3):
-                #                 continue
-                #             G[tempTSNFlow.path.nodes.__getitem__(index)][tempTSNFlow.path.nodes.__getitem__(index + 1)][
-                #         'nbOfTSN'] = \
-                #             G[tempTSNFlow.path.nodes.__getitem__(index)][tempTSNFlow.path.nodes.__getitem__(index + 1)][
-                #         'nbOfTSN'] + 1
-
-
-
-
-
-
-                # if (not tempScheduledSWTS):
-                #     if(len(flowsList) == 0):
-                #         FTT = time
-                #     else:
-                #         FTT = flowsList.__getitem__(0).__getitem__(1)
-                #     # Scheduling With Time Slots (SWTS) #
-                #     ##########################################
-                #     start = timer()
-                #     tempScheduledSWTS = SWTS(G, tempTSNFlow, scheduledFlowsSWTS, CLength, timeSlots, time, FTT)
-                #     end = timer()
-                #     SWTSSchedulingExectionTimes.append((((end - start) * 1000 * 1000), tempScheduledSWTS))
-                #     ##########################################
-                #     if(tempScheduledSWTS):
-                #
-                #         # waitiingTimesforTransmissions.append(((time - FTT + 16000) % CLength,(
-                #         #                                       scheduledFlowsSWTS.__getitem__(
-                #         #                                           len(scheduledFlowsSWTS) - 1)[
-                #         #                                           1])*timeSlotLength))  # this line to compute the average waiting time until transmission
-                #
-                #         scheduledCounterSWTS = scheduledCounterSWTS + 1
-                #         for index in range(len(tempTSNFlow.path.nodes)):
-                #             if (index == 0 or index > len(tempTSNFlow.path.nodes) - 3):
-                #                 continue
-                #             G[tempTSNFlow.path.nodes.__getitem__(index)][tempTSNFlow.path.nodes.__getitem__(index + 1)][
-                #         'nbOfTSN'] = \
-                #             G[tempTSNFlow.path.nodes.__getitem__(index)][tempTSNFlow.path.nodes.__getitem__(index + 1)][
-                #         'nbOfTSN'] + 1
-
-
-
-
-
-
-
-
-                # i = 3
-                # b = 5
-                # text = '{},{}'.format(i,b)
-                # print(text)
-                # x =3
-                # w =4
-                # zag = '{},{}'.format(x,w)
-                # if(text == zag):
-                #     print('yes')
-
-
-
-        time = time + random.randint(1,CLength+1)
-
-
-    ## To calculate the number of reduced gate for AEAP_WS
-    # nbOfGates, nbOfmergedGates = countGates_AEAP_WS(G,scheduledFlowsSWOTS_AEAP_WS)
-    # print(nbOfGates)
-    # print(nbOfmergedGates)
-    # reducePrecentage = (nbOfmergedGates/nbOfGates)*100
-    # print('The percentage of reduced gates: {}%'.format(reducePrecentage))
-
-    # To print the total number of flows and routed flows
-    print('The total number of flows: {}'.format(nbOfTSNFlows))
-    print('nb of routed flows: {}'.format(routedCounter))
-
-
-    # print('nb of scheduled flows using SWOTS_AEAP: {}'.format(scheduledCounterSWOTS_AEAP))
-    print('nb of scheduled flows using SWOTS_AEAP_WS: {}'.format(scheduledCounterSWOTS_AEAP_WS))
-    # print('nb of scheduled flows using SWTS: {}'.format(scheduledCounterSWTS))
-    # print('nb of scheduled flows using SWOTS_ASAP: {}'.format(scheduledCounterSWOTS_ASAP))
-    # print('nb of scheduled flows using SWOTS_ASAP_WS: {}'.format(scheduledCounterSWOTS_ASAP_WS))
-    ##
-
-    # print('precentage of scheduled flows using SWOTS_ASAP_WS to routed: {}'.format((scheduledCounterSWOTS_ASAP_WS/routedCounter)*100))
-
-
-    # total = 0
-    # max = -10
-    # min = 10000
-    # for x in routingExecutionTimes:
-    #     total = total +x.__getitem__(0)
-    #     if(x.__getitem__(0)>max):
-    #         max = x.__getitem__(0)
-    #     if(x.__getitem__(0)<min):
-    #         min = x.__getitem__(0)
-    # averageRoutingTime = total/len(routingExecutionTimes)
-    # print('Average routing Time in microseconds: {}, with minimum running time equal ({}) and maximum running time equal ({})'.format(averageRoutingTime,min,max))
-
-
-    # total = 0
-    # max = -10
-    # min = 10000
-    # for x in SWOTS_AEAPSchedulingExectionTimes:
-    #     total = total + x.__getitem__(0)
-    #     if (x.__getitem__(0) > max):
-    #         max = x.__getitem__(0)
-    #     if (x.__getitem__(0) < min):
-    #         min = x.__getitem__(0)
-    # averageSWOTSAEAPTime = total/len(SWOTS_AEAPSchedulingExectionTimes)
-    # print('Average SWOTS-AEAP Time in micro seconds: {}, with minimum running time equal ({}) and maximum running time equal ({})'.format(averageSWOTSAEAPTime,min,max))
-    # print("{} , {} , {} , {} , {}".format(scheduledCounterSWOTS_AEAP,max,min,averageSWOTSAEAPTime,reducePrecentage))
-
-    # total = 0
-    # max = -10
-    # min = 10000
-    # for x in SWOTS_AEAP_WSSchedulingExectionTimes:
-    #     total = total + x.__getitem__(0)
-    #     if (x.__getitem__(0) > max):
-    #         max = x.__getitem__(0)
-    #     if (x.__getitem__(0) < min):
-    #         min = x.__getitem__(0)
-    # averageSWOTSAEAPWSTime = total/len(SWOTS_AEAP_WSSchedulingExectionTimes)
-    # print('Average SWOTS-AEAP-WS Time in micro seconds: {}, with minimum running time equal ({}) and maximum running time equal ({})'.format(averageSWOTSAEAPWSTime,min,max))
-    # print("{} , {} , {} , {} , {}".format(scheduledCounterSWOTS_AEAP_WS,max,min,averageSWOTSAEAPWSTime,reducePrecentage))
-
-
-    # total = 0
-    # max = -10
-    # min = 10000
-    # for x in SWOTS_ASAP_WSSchedulingExectionTimes:
-    #     total = total +x.__getitem__(0)
-    #     if(x.__getitem__(0)>max):
-    #         max = x.__getitem__(0)
-    #     if(x.__getitem__(0)<min):
-    #         min = x.__getitem__(0)
-    # averageSWOTSASAPWSTime = total/len(SWOTS_ASAP_WSSchedulingExectionTimes)
-    # print('Average SWOTS-AEAP-WS Time in micro seconds: {}, with minimum running time equal ({}) and maximum running time equal ({})'.format(averageSWOTSASAPWSTime,min,max))
-
-
-    # total = 0
-    # max = -10
-    # min = 10000
-    # for x in SWOTS_ASAPSchedulingExectionTimes:
-    #     total = total +x.__getitem__(0)
-    #     if(x.__getitem__(0)>max):
-    #         max = x.__getitem__(0)
-    #     if(x.__getitem__(0)<min):
-    #         min = x.__getitem__(0)
-    # averageSWOTSASAPTime = total/len(SWOTS_ASAPSchedulingExectionTimes)
-    # print('Average SWOTS-ASAP Time in micro seconds: {}, with minimum running time equal ({}) and maximum running time equal ({})'.format(averageSWOTSASAPTime,min,max))
-    # print("{} , {} , {} , {} , {}".format(scheduledCounterSWOTS_ASAP,max,min,averageSWOTSASAPTime,reducePrecentage))
-
-
-
-    # This code to print the average waiting time by sender
-    total = 0
-    max=0
-    min =10000
-    for scheduledItem in waitiingTimesforTransmissions:
-        if(scheduledItem[0]<=scheduledItem[1]):
-            total = total + (scheduledItem[1]-scheduledItem[0])
-            if((scheduledItem[1]-scheduledItem[0])>max):
-                max = scheduledItem[1]-scheduledItem[0]
-            if((scheduledItem[1]-scheduledItem[0])<min):
-                min = scheduledItem[1]-scheduledItem[0]
-        else:
-            total= total + (CLength - (scheduledItem[0]-scheduledItem[1]))
-            if((CLength - (scheduledItem[0]-scheduledItem[1]))>max):
-                max = CLength - (scheduledItem[0]-scheduledItem[1])
-            if((CLength - (scheduledItem[0]-scheduledItem[1]))<min):
-                min = CLength - (scheduledItem[0]-scheduledItem[1])
-
-    averageWaitingTime = total/len(waitiingTimesforTransmissions)
-    print('Average SWOTS-AEAP Waiting Time until transmission in micro seconds({}), with min=({}), and max=({})'.format(averageWaitingTime,min,max))
-
-
-
-
-    # total = 0
-    # max = -10
-    # min = 10000
-    # for x in SWTSSchedulingExectionTimes:
-    #     total = total +x.__getitem__(0)
-    #     if(x.__getitem__(0)>max):
-    #         max = x.__getitem__(0)
-    #     if(x.__getitem__(0)<min):
-    #         min = x.__getitem__(0)
-    # averageSWTSTime = total/len(SWTSSchedulingExectionTimes)
-    # print('Average SWTS Time in micro seconds: {}, with minimum running time equal ({}) and maximum running time equal ({})'.format(averageSWTSTime,min,max))
-    # print("{} , {} , {} , {}".format(scheduledCounterSWTS,max,min,averageSWTSTime))
-
-    # print('The pre routing phase Time in seconds: {}'.format(preRoutingPhaseTime))
-
-    ##########################
-    # print('The pre routing phase2: {}'.format(ThelongestTimeEver2)) speed
-    # print('The pre routing phase with multithreading: {}'.format(anotherThelongestTimeEver))
-    # print('The pre routing phase with multithreading2: {}'.format(anotherThelongestTimeEver2))
-    # print('The pre routing phase with old: {}'.format(oldThelongestTimeEver))
-    ##########################
-
-
-
-
-    # ###########################################
-    # #this code to test SWOTS_ASAP
-    # for scheduledItem in scheduledFlowsSWOTS_ASAP:
-    #     index = 0
-    #     textTemp = '['
-    #     for node in scheduledItem[0].path.nodes:
-    #
-    #         if (index ==0):
-    #             textTemp = textTemp + '{}, '.format(node.id)
-    #         elif(index == len(scheduledItem[0].path.nodes)-1):
-    #             textTemp = textTemp + '{}]'.format(node.id)
-    #         else:
-    #             textTemp = textTemp + '{}, '.format(node)
-    #
-    #         index = index + 1
-    #
-    #     TextTemp2 = '['
-    #     tempOperations = map(G,scheduledItem[0],scheduledItem[1])
-    #     index = 0
-    #     for operation in tempOperations:
-    #         if (index%2 == 1):
-    #             TextTemp2 = TextTemp2 + '({}) = {},  '.format(operation.id,operation.cumulativeDelay)
-    #         if (index%2 == 0):
-    #             TextTemp2 = TextTemp2 + '({}) = {},  '.format(operation.id,operation.cumulativeDelay)
-    #
-    #         index = index +1
-    #
-    #     print('The flow ({}) will go through ({}) and start transmission at: ({}) as follow:'.format(scheduledItem[0].id, textTemp,scheduledItem[1]))
-    #     print(TextTemp2)
-    # print(CLength)
-    # ###########################################
-
-
-    # ###########################################
-    # #this code to test SWOTS_AEAP WS
-    #
-    # for scheduledItem in scheduledFlowsSWOTS_AEAP_WS:
-    #     index = 0
-    #     textTemp = '['
-    #     for node in scheduledItem[0].path.nodes:
-    #
-    #         if (index ==0):
-    #             textTemp = textTemp + '{}, '.format(node.id)
-    #         elif(index == len(scheduledItem[0].path.nodes)-1):
-    #             textTemp = textTemp + '{}]'.format(node.id)
-    #         else:
-    #             textTemp = textTemp + '{}, '.format(node)
-    #
-    #         index = index + 1
-    #
-    #     TextTemp2 = '['
-    #     tempOperations = map_ws(G,scheduledItem[0],scheduledItem[1],scheduledItem[2])
-    #     index = 0
-    #     for operation in tempOperations:
-    #         if (index%2 == 1):
-    #             TextTemp2 = TextTemp2 + '({}) = {},  '.format(operation.id,operation.cumulativeDelay)
-    #         if (index%2 == 0):
-    #             TextTemp2 = TextTemp2 + '({}) = {},  '.format(operation.id,operation.cumulativeDelay)
-    #
-    #         index = index +1
-    #     print('The flow ({}) will go through ({}) and start transmission at: ({}) as follow:'.format(scheduledItem[0].id, textTemp,scheduledItem[1]))
-    #     print(TextTemp2)
-    # print(CLength)
-    # ###########################################
-
-
-    # ###########################################
-    # #this code to test SWOTS_ASAP WS
-    #
-    # for scheduledItem in scheduledFlowsSWOTS_ASAP_WS:
-    #     index = 0
-    #     textTemp = '['
-    #     for node in scheduledItem[0].path.nodes:
-    #
-    #         if (index ==0):
-    #             textTemp = textTemp + '{}, '.format(node.id)
-    #         elif(index == len(scheduledItem[0].path.nodes)-1):
-    #             textTemp = textTemp + '{}]'.format(node.id)
-    #         else:
-    #             textTemp = textTemp + '{}, '.format(node)
-    #
-    #         index = index + 1
-    #
-    #     TextTemp2 = '['
-    #     tempOperations = map_ws(G,scheduledItem[0],scheduledItem[1],scheduledItem[2])
-    #     index = 0
-    #     for operation in tempOperations:
-    #         if (index%2 == 1):
-    #             TextTemp2 = TextTemp2 + '({}) = {},  '.format(operation.id,operation.cumulativeDelay)
-    #         if (index%2 == 0):
-    #             TextTemp2 = TextTemp2 + '({}) = {},  '.format(operation.id,operation.cumulativeDelay)
-    #
-    #         index = index +1
-    #     print('The flow ({}) will go through ({}) and start transmission at: ({}) as follow:'.format(scheduledItem[0].id, textTemp,scheduledItem[1]))
-    #     print(TextTemp2)
-    # print(CLength)
-    # ###########################################
-
-
-
-
-
-
-
-    # total = 0
-    # for x in SWOTS_AEAPSchedulingExectionTimes:
-    #     total = total +x.__getitem__(0)
-    # averageSWOTSTime = total/len(SWOTS_AEAPSchedulingExectionTimes)
-    # print('Average SWOTS Time: {}'.format(averageSWOTSTime))
-
-
-    ##
-
-
-
-
-
-    # print(routingExecutionTimes)
-    # print(SWOTS_AEAPSchedulingExectionTimes)
-    # print(SWTSSchedulingExectionTimes)
-    #
-    #
-    # print(routedCounter)
-    # print(scheduledCounterSWOTS_AEAP)
-    # print(scheduledCounterSWTS)
-
-
-
-    # print('Total = ({}) \nRouted = ({}) \nSWOTS = ({}) \nSWTS = ({})'.format(len(flowsList),routedCounter,scheduledCounterSWOTS_AEAP,scheduledCounterSWTS))
-    # for time in timeSlots:
-    #     print(time.Scheduledlinks)
-
-
-
-
-
-
-    # for scheduledItem in scheduledFlowsSWOTS_AEAP:
-    #     tempFlow = scheduledItem.__getitem__(0)
-    #     tempStartTime = scheduledItem.__getitem__(1)
-    #     tempPath = tempFlow.path
-    #     displayPath = display(tempPath)
-    #     print('Flow ({}) arrived at time ({}), routed through {}, scheduled at ({})'.format(tempFlow.id, findFlowArrivalTime(tempFlow,flowsList),displayPath, tempStartTime))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    # dict = {}
-    # x = 4
-    # y = 8
-    # z = 5
-    # dict[x,y] = [1,2,3]
-    # if((x,y) in dict.keys()):
-    #     print(dict[x,y])
-
-
-    # for s in hostsList:
-    #     for d in hostsList:
-    #         if((s.id,d.id) in allPaths.keys()):
-    #             paths = allPaths[s.id, d.id]
-    #             for path in paths:
-    #                 print(path.nodes)
-    #                 print(path.delay)
-    #                 text = ''
-    #                 for i in range(len(path.nodes)):
-    #                     if(i ==0):
-    #                         text = text + str(list(path.nodes).__getitem__(i)) + 'transmission delay =' + str(findHost(hostsList,list(path.nodes).__getitem__(i)).transmissonDelay) + 'processing delay =' + str(findHost(hostsList,list(path.nodes).__getitem__(i)).processingDelay) + '\n'
-    #                     elif(i<len(path.nodes)-2):
-    #                         text = text + str(list(path.nodes).__getitem__(i)) + 'transmission delay =' + str(G.nodes[list(path.nodes).__getitem__(i)]['transmissionDelay']) + 'processing delay =' + str(G[list(path.nodes).__getitem__(i)][list(path.nodes).__getitem__(i+1)]['processingDelay']) + '\n'
-    #                     elif(i<len(path.nodes)-1):
-    #                         text = text + str(list(path.nodes).__getitem__(i)) + 'transmission delay =' + str(G.nodes[list(path.nodes).__getitem__(i)]['transmissionDelay']) + '\n'
-    #                     else:
-    #                         text = text + str(list(path.nodes).__getitem__(i)) + 'processing delay =' + str(findHost(hostsList,list(path.nodes).__getitem__(i)).processingDelay) + '\n'
-    #                 print(text)
-
-
-
-
-
-    # for i in nx.edges(G, G.nodes):
-    #     print(G[i[0]][i[1]]['nbOfTSN'])
-
-
-    #print(nx.edges(G,G.nodes))
-    # for i in G.nodes:
-    #     print(G.nodes[i]['transmissionDelay'])
-
-
-
-
-
-
-
-
-
-    # pathslist = [] speed
-    # for s in hostsList:
-    #     for d in hostsList:
-    #         if((s.id,d.id) in firstKthPaths.keys()):
-    #             paths = firstKthPaths[s.id, d.id]
-    #
-    #             for path in paths:
-    #                 textTemp = '('
-    #                 for index in range (len(path.nodes)):
-    #                     if(index ==0):
-    #                         textTemp = textTemp + '{}'.format(path.nodes[index].id) + ', '
-    #                     elif(index == len(path.nodes)-1):
-    #                         textTemp = textTemp + '{}'.format(path.nodes[index].id) + ')[delay={}]'.format(path.delay)
-    #                     else:
-    #                         textTemp = textTemp + '{}'.format(path.nodes[index]) + ', '
-    #                 pathslist.append(textTemp)
-    #
-    # print(pathslist)
-    #
-    #
-    # pathslist2 = []
-    # for s in hostsList:
-    #     for d in hostsList:
-    #         if((s.id,d.id) in anotherFirstKthPaths.keys()):
-    #             paths = anotherFirstKthPaths[s.id, d.id]
-    #
-    #             for path in paths:
-    #                 textTemp = '('
-    #                 for index in range (len(path.nodes)):
-    #                     if(index ==0):
-    #                         textTemp = textTemp + '{}'.format(path.nodes[index].id) + ', '
-    #                     elif(index == len(path.nodes)-1):
-    #                         textTemp = textTemp + '{}'.format(path.nodes[index].id) + ')[delay={}]'.format(path.delay)
-    #                     else:
-    #                         textTemp = textTemp + '{}'.format(path.nodes[index]) + ', '
-    #                 pathslist2.append(textTemp)
-    #
-    # print(pathslist2)
-    #
-    #
-    # pathslist3 = []
-    # for s in hostsList:
-    #     for d in hostsList:
-    #         if((s.id,d.id) in oldFirstKthPaths.keys()):
-    #             paths = oldFirstKthPaths[s.id, d.id]
-    #
-    #
-    #             for path in paths:
-    #                 textTemp = '('
-    #                 for index in range (len(path.nodes)):
-    #                     if(index ==0):
-    #                         textTemp = textTemp + '{}'.format(path.nodes[index].id) + ', '
-    #                     elif(index == len(path.nodes)-1):
-    #                         textTemp = textTemp + '{}'.format(path.nodes[index].id) + ')[delay={}]'.format(path.delay)
-    #                     else:
-    #                         textTemp = textTemp + '{}'.format(path.nodes[index]) + ', '
-    #                 pathslist3.append(textTemp)
-    #
-    # print(pathslist3)
-    #
-    # print(pathslist == pathslist2)
-    # print(pathslist == pathslist3)
-    # print(pathslist2 == pathslist3)
+                    # if(not tempScheduledSWOTS_AEAP):
+                    #     if(len(flowsList) == 0):
+                    #         FTT = time
+                    #     else:
+                    #         FTT = flowsList.__getitem__(0).__getitem__(1)
+                    #
+                    #     # Scheduling WithOut Time Slots As Early As Possible (SWOTS_AEAP) #
+                    #     ##########################################
+                    #     start = timer()
+                    #     tempScheduledSWOTS_AEAP = SWOTS_AEAP(G, tempTSNFlow, scheduledFlowsSWOTS_AEAP, CLength)
+                    #     end = timer()
+                    #     SWOTS_AEAPSchedulingExectionTimes.append((((end - start) * 1000 * 1000), tempScheduledSWOTS_AEAP))
+                    #     ##########################################
+                    #     # print((end - start) * 1000 * 1000)
+                    #
+                    #     if(tempScheduledSWOTS_AEAP):
+                    #
+                    #         waitiingTimesforTransmissions.append(((time - FTT + 16000) % CLength,
+                    #                                               scheduledFlowsSWOTS_AEAP.__getitem__(
+                    #                                                   len(scheduledFlowsSWOTS_AEAP) - 1)[
+                    #                                                   1]))  # this line to compute the average waiting time until transmission
+                    #
+                    #         scheduledCounterSWOTS_AEAP = scheduledCounterSWOTS_AEAP + 1
+                    #         for index in range(len(tempTSNFlow.path.nodes)):
+                    #             if (index == 0 or index > len(tempTSNFlow.path.nodes) - 3):
+                    #                 continue
+                    #             G[tempTSNFlow.path.nodes.__getitem__(index)][tempTSNFlow.path.nodes.__getitem__(index + 1)][
+                    #         'nbOfTSN'] = \
+                    #             G[tempTSNFlow.path.nodes.__getitem__(index)][tempTSNFlow.path.nodes.__getitem__(index + 1)][
+                    #         'nbOfTSN'] + 1
+
+                    if (not tempScheduledSWOTS_AEAP_WS):
+                        if (len(flowsList) == 0):
+                            FTT = time
+                        else:
+                            FTT = flowsList.__getitem__(0).__getitem__(1)
+
+                        # Scheduling WithOut Time Slots As Early As Possible With Stops (Queuing Delays) (SWOTS_AEAP_WS) #
+                        ##########################################
+                        start = timer()
+                        tempScheduledSWOTS_AEAP_WS = SWOTS_AEAP_WS(G, tempTSNFlow, scheduledFlowsSWOTS_AEAP_WS, CLength)
+                        end = timer()
+                        SWOTS_AEAP_WSSchedulingExectionTimes.append(
+                            (((end - start) * 1000 * 1000), tempScheduledSWOTS_AEAP_WS))
+                        ##########################################
+                        # print((end - start) * 1000 * 1000)
+
+                        if (tempScheduledSWOTS_AEAP_WS):
+
+                            waitiingTimesforTransmissions.append(((time - FTT + 16000) % CLength,
+                                                                  scheduledFlowsSWOTS_AEAP_WS.__getitem__(
+                                                                      len(scheduledFlowsSWOTS_AEAP_WS) - 1)[
+                                                                      1]))  # this line to compute the average waiting time until transmission
+
+                            if(not fakeFlow):
+                                scheduledCounterSWOTS_AEAP_WS = scheduledCounterSWOTS_AEAP_WS + 1
+                            for index in range(len(tempTSNFlow.path.nodes)):
+                                if (index == 0 or index > len(tempTSNFlow.path.nodes) - 3):
+                                    continue
+                                G[tempTSNFlow.path.nodes.__getitem__(index)][
+                                    tempTSNFlow.path.nodes.__getitem__(index + 1)][
+                                    'nbOfTSN'] = \
+                                    G[tempTSNFlow.path.nodes.__getitem__(index)][
+                                        tempTSNFlow.path.nodes.__getitem__(index + 1)][
+                                        'nbOfTSN'] + 1
+
+                    # if(not tempScheduledSWOTS_ASAP_WS):
+                    #     if(len(flowsList)==0):
+                    #         FTT = time
+                    #     else:
+                    #         FTT = flowsList.__getitem__(0).__getitem__(1)
+                    #     # Scheduling WithOut Time Slots As Soon As Possible With Stops (Queuing Delays) (SWOTS_ASAP_WS) #
+                    #     ##########################################
+                    #     start = timer()
+                    #     tempScheduledSWOTS_ASAP_WS = SWOTS_ASAP_WS(G, tempTSNFlow, scheduledFlowsSWOTS_ASAP_WS, CLength,time,FTT)
+                    #     end = timer()
+                    #     SWOTS_ASAP_WSSchedulingExectionTimes.append((((end - start) * 1000 * 1000), tempScheduledSWOTS_ASAP_WS))
+                    #     ##########################################
+                    #     # print((end - start) * 1000 * 1000)
+                    #
+                    #     if(tempScheduledSWOTS_ASAP_WS):
+                    #
+                    #         # waitiingTimesforTransmissions.append(((time - FTT + 16000) % CLength,
+                    #         #                                       scheduledFlowsSWOTS_ASAP_WS.__getitem__(
+                    #         #                                           len(scheduledFlowsSWOTS_ASAP_WS) - 1)[
+                    #         #                                           1]))  # this line to compute the average waiting time until transmission
+                    #
+                    #         scheduledCounterSWOTS_ASAP_WS = scheduledCounterSWOTS_ASAP_WS + 1
+                    #         for index in range(len(tempTSNFlow.path.nodes)):
+                    #             if (index == 0 or index > len(tempTSNFlow.path.nodes) - 3):
+                    #                 continue
+                    #             G[tempTSNFlow.path.nodes.__getitem__(index)][tempTSNFlow.path.nodes.__getitem__(index + 1)][
+                    #         'nbOfTSN'] = \
+                    #             G[tempTSNFlow.path.nodes.__getitem__(index)][tempTSNFlow.path.nodes.__getitem__(index + 1)][
+                    #         'nbOfTSN'] + 1
+
+                    # if(not tempScheduledSWOTS_ASAP):
+                    #     if(len(flowsList) == 0):
+                    #         FTT = time
+                    #     else:
+                    #         FTT = flowsList.__getitem__(0).__getitem__(1)
+                    #
+                    #     # Scheduling WithOut Time Slots As Soon As Possible (SWOTS_ASAP) #
+                    #     ##########################################
+                    #     start = timer()
+                    #     tempScheduledSWOTS_ASAP = SWOTS_ASAP(G, tempTSNFlow, scheduledFlowsSWOTS_ASAP, CLength, time, FTT)
+                    #     end = timer()
+                    #     SWOTS_ASAPSchedulingExectionTimes.append((((end - start) * 1000 * 1000), tempScheduledSWOTS_ASAP))
+                    #     ##########################################
+                    #     # print((end - start) * 1000 * 1000)
+                    #
+                    #
+                    #     if(tempScheduledSWOTS_ASAP):
+                    #
+                    #         # waitiingTimesforTransmissions.append(((time-FTT+16000)%CLength,scheduledFlowsSWOTS_ASAP.__getitem__(len(scheduledFlowsSWOTS_ASAP)-1)[1])) # this line to compute the average waiting time until transmission
+                    #
+                    #         scheduledCounterSWOTS_ASAP = scheduledCounterSWOTS_ASAP + 1
+                    #         for index in range(len(tempTSNFlow.path.nodes)):
+                    #             if (index == 0 or index > len(tempTSNFlow.path.nodes) - 3):
+                    #                 continue
+                    #             G[tempTSNFlow.path.nodes.__getitem__(index)][tempTSNFlow.path.nodes.__getitem__(index + 1)][
+                    #         'nbOfTSN'] = \
+                    #             G[tempTSNFlow.path.nodes.__getitem__(index)][tempTSNFlow.path.nodes.__getitem__(index + 1)][
+                    #         'nbOfTSN'] + 1
+
+                    # if (not tempScheduledSWTS):
+                    #     if(len(flowsList) == 0):
+                    #         FTT = time
+                    #     else:
+                    #         FTT = flowsList.__getitem__(0).__getitem__(1)
+                    #     # Scheduling With Time Slots (SWTS) #
+                    #     ##########################################
+                    #     start = timer()
+                    #     tempScheduledSWTS = SWTS(G, tempTSNFlow, scheduledFlowsSWTS, CLength, timeSlots, time, FTT)
+                    #     end = timer()
+                    #     SWTSSchedulingExectionTimes.append((((end - start) * 1000 * 1000), tempScheduledSWTS))
+                    #     ##########################################
+                    #     if(tempScheduledSWTS):
+                    #
+                    #         # waitiingTimesforTransmissions.append(((time - FTT + 16000) % CLength,(
+                    #         #                                       scheduledFlowsSWTS.__getitem__(
+                    #         #                                           len(scheduledFlowsSWTS) - 1)[
+                    #         #                                           1])*timeSlotLength))  # this line to compute the average waiting time until transmission
+                    #
+                    #         scheduledCounterSWTS = scheduledCounterSWTS + 1
+                    #         for index in range(len(tempTSNFlow.path.nodes)):
+                    #             if (index == 0 or index > len(tempTSNFlow.path.nodes) - 3):
+                    #                 continue
+                    #             G[tempTSNFlow.path.nodes.__getitem__(index)][tempTSNFlow.path.nodes.__getitem__(index + 1)][
+                    #         'nbOfTSN'] = \
+                    #             G[tempTSNFlow.path.nodes.__getitem__(index)][tempTSNFlow.path.nodes.__getitem__(index + 1)][
+                    #         'nbOfTSN'] + 1
+
+                    # i = 3
+                    # b = 5
+                    # text = '{},{}'.format(i,b)
+                    # print(text)
+                    # x =3
+                    # w =4
+                    # zag = '{},{}'.format(x,w)
+                    # if(text == zag):
+                    #     print('yes')
+
+            time = time + random.randint(1, CLength + 1)
+
+        ## To calculate the number of reduced gate for AEAP_WS
+        # nbOfGates, nbOfmergedGates = countGates_AEAP_WS(G,scheduledFlowsSWOTS_AEAP_WS)
+        # print(nbOfGates)
+        # print(nbOfmergedGates)
+        # reducePrecentage = (nbOfmergedGates/nbOfGates)*100
+        # print('The percentage of reduced gates: {}%'.format(reducePrecentage))
+
+        # To print the total number of flows and routed flows
+        print('The total number of real TSN flows: {}'.format(nbOfTSNFlows))
+        print('nb of total routed flows (real and unreal): {}'.format(totalRoutedCounter))
+        print('nb of routed real flows: {}'.format(routedCounter))
+
+        # print('nb of scheduled flows using SWOTS_AEAP: {}'.format(scheduledCounterSWOTS_AEAP))
+        print('nb of scheduled flows using SWOTS_AEAP_WS: {}'.format(scheduledCounterSWOTS_AEAP_WS))
+        # print('nb of scheduled flows using SWTS: {}'.format(scheduledCounterSWTS))
+        # print('nb of scheduled flows using SWOTS_ASAP: {}'.format(scheduledCounterSWOTS_ASAP))
+        # print('nb of scheduled flows using SWOTS_ASAP_WS: {}'.format(scheduledCounterSWOTS_ASAP_WS))
+        ##
+
+        # print('precentage of scheduled flows using SWOTS_ASAP_WS to routed: {}'.format((scheduledCounterSWOTS_ASAP_WS/routedCounter)*100))
+
+        # total = 0
+        # max = -10
+        # min = 10000
+        # for x in routingExecutionTimes:
+        #     total = total +x.__getitem__(0)
+        #     if(x.__getitem__(0)>max):
+        #         max = x.__getitem__(0)
+        #     if(x.__getitem__(0)<min):
+        #         min = x.__getitem__(0)
+        # averageRoutingTime = total/len(routingExecutionTimes)
+        # print('Average routing Time in microseconds: {}, with minimum running time equal ({}) and maximum running time equal ({})'.format(averageRoutingTime,min,max))
+
+        # total = 0
+        # max = -10
+        # min = 10000
+        # for x in SWOTS_AEAPSchedulingExectionTimes:
+        #     total = total + x.__getitem__(0)
+        #     if (x.__getitem__(0) > max):
+        #         max = x.__getitem__(0)
+        #     if (x.__getitem__(0) < min):
+        #         min = x.__getitem__(0)
+        # averageSWOTSAEAPTime = total/len(SWOTS_AEAPSchedulingExectionTimes)
+        # print('Average SWOTS-AEAP Time in micro seconds: {}, with minimum running time equal ({}) and maximum running time equal ({})'.format(averageSWOTSAEAPTime,min,max))
+        # print("{} , {} , {} , {} , {}".format(scheduledCounterSWOTS_AEAP,max,min,averageSWOTSAEAPTime,reducePrecentage))
+
+        # total = 0
+        # max = -10
+        # min = 10000
+        # for x in SWOTS_AEAP_WSSchedulingExectionTimes:
+        #     total = total + x.__getitem__(0)
+        #     if (x.__getitem__(0) > max):
+        #         max = x.__getitem__(0)
+        #     if (x.__getitem__(0) < min):
+        #         min = x.__getitem__(0)
+        # averageSWOTSAEAPWSTime = total/len(SWOTS_AEAP_WSSchedulingExectionTimes)
+        # print('Average SWOTS-AEAP-WS Time in micro seconds: {}, with minimum running time equal ({}) and maximum running time equal ({})'.format(averageSWOTSAEAPWSTime,min,max))
+        # print("{} , {} , {} , {} , {}".format(scheduledCounterSWOTS_AEAP_WS,max,min,averageSWOTSAEAPWSTime,reducePrecentage))
+
+        # total = 0
+        # max = -10
+        # min = 10000
+        # for x in SWOTS_ASAP_WSSchedulingExectionTimes:
+        #     total = total +x.__getitem__(0)
+        #     if(x.__getitem__(0)>max):
+        #         max = x.__getitem__(0)
+        #     if(x.__getitem__(0)<min):
+        #         min = x.__getitem__(0)
+        # averageSWOTSASAPWSTime = total/len(SWOTS_ASAP_WSSchedulingExectionTimes)
+        # print('Average SWOTS-AEAP-WS Time in micro seconds: {}, with minimum running time equal ({}) and maximum running time equal ({})'.format(averageSWOTSASAPWSTime,min,max))
+
+        # total = 0
+        # max = -10
+        # min = 10000
+        # for x in SWOTS_ASAPSchedulingExectionTimes:
+        #     total = total +x.__getitem__(0)
+        #     if(x.__getitem__(0)>max):
+        #         max = x.__getitem__(0)
+        #     if(x.__getitem__(0)<min):
+        #         min = x.__getitem__(0)
+        # averageSWOTSASAPTime = total/len(SWOTS_ASAPSchedulingExectionTimes)
+        # print('Average SWOTS-ASAP Time in micro seconds: {}, with minimum running time equal ({}) and maximum running time equal ({})'.format(averageSWOTSASAPTime,min,max))
+        # print("{} , {} , {} , {} , {}".format(scheduledCounterSWOTS_ASAP,max,min,averageSWOTSASAPTime,reducePrecentage))
+
+        # This code to print the average waiting time by sender
+        total = 0
+        max = 0
+        min = 10000
+        for scheduledItem in waitiingTimesforTransmissions:
+            if (scheduledItem[0] <= scheduledItem[1]):
+                total = total + (scheduledItem[1] - scheduledItem[0])
+                if ((scheduledItem[1] - scheduledItem[0]) > max):
+                    max = scheduledItem[1] - scheduledItem[0]
+                if ((scheduledItem[1] - scheduledItem[0]) < min):
+                    min = scheduledItem[1] - scheduledItem[0]
+            else:
+                total = total + (CLength - (scheduledItem[0] - scheduledItem[1]))
+                if ((CLength - (scheduledItem[0] - scheduledItem[1])) > max):
+                    max = CLength - (scheduledItem[0] - scheduledItem[1])
+                if ((CLength - (scheduledItem[0] - scheduledItem[1])) < min):
+                    min = CLength - (scheduledItem[0] - scheduledItem[1])
+
+        averageWaitingTime = total / len(waitiingTimesforTransmissions)
+        print(
+            'Average SWOTS-AEAP Waiting Time until transmission in micro seconds({}), with min=({}), and max=({})'.format(
+                averageWaitingTime, min, max))
+
+        # total = 0
+        # max = -10
+        # min = 10000
+        # for x in SWTSSchedulingExectionTimes:
+        #     total = total +x.__getitem__(0)
+        #     if(x.__getitem__(0)>max):
+        #         max = x.__getitem__(0)
+        #     if(x.__getitem__(0)<min):
+        #         min = x.__getitem__(0)
+        # averageSWTSTime = total/len(SWTSSchedulingExectionTimes)
+        # print('Average SWTS Time in micro seconds: {}, with minimum running time equal ({}) and maximum running time equal ({})'.format(averageSWTSTime,min,max))
+        # print("{} , {} , {} , {}".format(scheduledCounterSWTS,max,min,averageSWTSTime))
+
+        # print('The pre routing phase Time in seconds: {}'.format(preRoutingPhaseTime))
+
+        ##########################
+        # print('The pre routing phase2: {}'.format(ThelongestTimeEver2)) speed
+        # print('The pre routing phase with multithreading: {}'.format(anotherThelongestTimeEver))
+        # print('The pre routing phase with multithreading2: {}'.format(anotherThelongestTimeEver2))
+        # print('The pre routing phase with old: {}'.format(oldThelongestTimeEver))
+        ##########################
+
+        # ###########################################
+        # #this code to test SWOTS_ASAP
+        # for scheduledItem in scheduledFlowsSWOTS_ASAP:
+        #     index = 0
+        #     textTemp = '['
+        #     for node in scheduledItem[0].path.nodes:
+        #
+        #         if (index ==0):
+        #             textTemp = textTemp + '{}, '.format(node.id)
+        #         elif(index == len(scheduledItem[0].path.nodes)-1):
+        #             textTemp = textTemp + '{}]'.format(node.id)
+        #         else:
+        #             textTemp = textTemp + '{}, '.format(node)
+        #
+        #         index = index + 1
+        #
+        #     TextTemp2 = '['
+        #     tempOperations = map(G,scheduledItem[0],scheduledItem[1])
+        #     index = 0
+        #     for operation in tempOperations:
+        #         if (index%2 == 1):
+        #             TextTemp2 = TextTemp2 + '({}) = {},  '.format(operation.id,operation.cumulativeDelay)
+        #         if (index%2 == 0):
+        #             TextTemp2 = TextTemp2 + '({}) = {},  '.format(operation.id,operation.cumulativeDelay)
+        #
+        #         index = index +1
+        #
+        #     print('The flow ({}) will go through ({}) and start transmission at: ({}) as follow:'.format(scheduledItem[0].id, textTemp,scheduledItem[1]))
+        #     print(TextTemp2)
+        # print(CLength)
+        # ###########################################
+
+        # ###########################################
+        # #this code to test SWOTS_AEAP WS
+        #
+        # for scheduledItem in scheduledFlowsSWOTS_AEAP_WS:
+        #     index = 0
+        #     textTemp = '['
+        #     for node in scheduledItem[0].path.nodes:
+        #
+        #         if (index ==0):
+        #             textTemp = textTemp + '{}, '.format(node.id)
+        #         elif(index == len(scheduledItem[0].path.nodes)-1):
+        #             textTemp = textTemp + '{}]'.format(node.id)
+        #         else:
+        #             textTemp = textTemp + '{}, '.format(node)
+        #
+        #         index = index + 1
+        #
+        #     TextTemp2 = '['
+        #     tempOperations = map_ws(G,scheduledItem[0],scheduledItem[1],scheduledItem[2])
+        #     index = 0
+        #     for operation in tempOperations:
+        #         if (index%2 == 1):
+        #             TextTemp2 = TextTemp2 + '({}) = {},  '.format(operation.id,operation.cumulativeDelay)
+        #         if (index%2 == 0):
+        #             TextTemp2 = TextTemp2 + '({}) = {},  '.format(operation.id,operation.cumulativeDelay)
+        #
+        #         index = index +1
+        #     print('The flow ({}) will go through ({}) and start transmission at: ({}) as follow:'.format(scheduledItem[0].id, textTemp,scheduledItem[1]))
+        #     print(TextTemp2)
+        # print(CLength)
+        # ###########################################
+
+        # ###########################################
+        # #this code to test SWOTS_ASAP WS
+        #
+        # for scheduledItem in scheduledFlowsSWOTS_ASAP_WS:
+        #     index = 0
+        #     textTemp = '['
+        #     for node in scheduledItem[0].path.nodes:
+        #
+        #         if (index ==0):
+        #             textTemp = textTemp + '{}, '.format(node.id)
+        #         elif(index == len(scheduledItem[0].path.nodes)-1):
+        #             textTemp = textTemp + '{}]'.format(node.id)
+        #         else:
+        #             textTemp = textTemp + '{}, '.format(node)
+        #
+        #         index = index + 1
+        #
+        #     TextTemp2 = '['
+        #     tempOperations = map_ws(G,scheduledItem[0],scheduledItem[1],scheduledItem[2])
+        #     index = 0
+        #     for operation in tempOperations:
+        #         if (index%2 == 1):
+        #             TextTemp2 = TextTemp2 + '({}) = {},  '.format(operation.id,operation.cumulativeDelay)
+        #         if (index%2 == 0):
+        #             TextTemp2 = TextTemp2 + '({}) = {},  '.format(operation.id,operation.cumulativeDelay)
+        #
+        #         index = index +1
+        #     print('The flow ({}) will go through ({}) and start transmission at: ({}) as follow:'.format(scheduledItem[0].id, textTemp,scheduledItem[1]))
+        #     print(TextTemp2)
+        # print(CLength)
+        # ###########################################
+
+        # total = 0
+        # for x in SWOTS_AEAPSchedulingExectionTimes:
+        #     total = total +x.__getitem__(0)
+        # averageSWOTSTime = total/len(SWOTS_AEAPSchedulingExectionTimes)
+        # print('Average SWOTS Time: {}'.format(averageSWOTSTime))
+
+        ##
+
+        # print(routingExecutionTimes)
+        # print(SWOTS_AEAPSchedulingExectionTimes)
+        # print(SWTSSchedulingExectionTimes)
+        #
+        #
+        # print(routedCounter)
+        # print(scheduledCounterSWOTS_AEAP)
+        # print(scheduledCounterSWTS)
+
+        # print('Total = ({}) \nRouted = ({}) \nSWOTS = ({}) \nSWTS = ({})'.format(len(flowsList),routedCounter,scheduledCounterSWOTS_AEAP,scheduledCounterSWTS))
+        # for time in timeSlots:
+        #     print(time.Scheduledlinks)
+
+        # for scheduledItem in scheduledFlowsSWOTS_AEAP:
+        #     tempFlow = scheduledItem.__getitem__(0)
+        #     tempStartTime = scheduledItem.__getitem__(1)
+        #     tempPath = tempFlow.path
+        #     displayPath = display(tempPath)
+        #     print('Flow ({}) arrived at time ({}), routed through {}, scheduled at ({})'.format(tempFlow.id, findFlowArrivalTime(tempFlow,flowsList),displayPath, tempStartTime))
+
+        # dict = {}
+        # x = 4
+        # y = 8
+        # z = 5
+        # dict[x,y] = [1,2,3]
+        # if((x,y) in dict.keys()):
+        #     print(dict[x,y])
+
+        # for s in hostsList:
+        #     for d in hostsList:
+        #         if((s.id,d.id) in allPaths.keys()):
+        #             paths = allPaths[s.id, d.id]
+        #             for path in paths:
+        #                 print(path.nodes)
+        #                 print(path.delay)
+        #                 text = ''
+        #                 for i in range(len(path.nodes)):
+        #                     if(i ==0):
+        #                         text = text + str(list(path.nodes).__getitem__(i)) + 'transmission delay =' + str(findHost(hostsList,list(path.nodes).__getitem__(i)).transmissonDelay) + 'processing delay =' + str(findHost(hostsList,list(path.nodes).__getitem__(i)).processingDelay) + '\n'
+        #                     elif(i<len(path.nodes)-2):
+        #                         text = text + str(list(path.nodes).__getitem__(i)) + 'transmission delay =' + str(G.nodes[list(path.nodes).__getitem__(i)]['transmissionDelay']) + 'processing delay =' + str(G[list(path.nodes).__getitem__(i)][list(path.nodes).__getitem__(i+1)]['processingDelay']) + '\n'
+        #                     elif(i<len(path.nodes)-1):
+        #                         text = text + str(list(path.nodes).__getitem__(i)) + 'transmission delay =' + str(G.nodes[list(path.nodes).__getitem__(i)]['transmissionDelay']) + '\n'
+        #                     else:
+        #                         text = text + str(list(path.nodes).__getitem__(i)) + 'processing delay =' + str(findHost(hostsList,list(path.nodes).__getitem__(i)).processingDelay) + '\n'
+        #                 print(text)
+
+        # for i in nx.edges(G, G.nodes):
+        #     print(G[i[0]][i[1]]['nbOfTSN'])
+
+        # print(nx.edges(G,G.nodes))
+        # for i in G.nodes:
+        #     print(G.nodes[i]['transmissionDelay'])
+
+        # pathslist = [] speed
+        # for s in hostsList:
+        #     for d in hostsList:
+        #         if((s.id,d.id) in firstKthPaths.keys()):
+        #             paths = firstKthPaths[s.id, d.id]
+        #
+        #             for path in paths:
+        #                 textTemp = '('
+        #                 for index in range (len(path.nodes)):
+        #                     if(index ==0):
+        #                         textTemp = textTemp + '{}'.format(path.nodes[index].id) + ', '
+        #                     elif(index == len(path.nodes)-1):
+        #                         textTemp = textTemp + '{}'.format(path.nodes[index].id) + ')[delay={}]'.format(path.delay)
+        #                     else:
+        #                         textTemp = textTemp + '{}'.format(path.nodes[index]) + ', '
+        #                 pathslist.append(textTemp)
+        #
+        # print(pathslist)
+        #
+        #
+        # pathslist2 = []
+        # for s in hostsList:
+        #     for d in hostsList:
+        #         if((s.id,d.id) in anotherFirstKthPaths.keys()):
+        #             paths = anotherFirstKthPaths[s.id, d.id]
+        #
+        #             for path in paths:
+        #                 textTemp = '('
+        #                 for index in range (len(path.nodes)):
+        #                     if(index ==0):
+        #                         textTemp = textTemp + '{}'.format(path.nodes[index].id) + ', '
+        #                     elif(index == len(path.nodes)-1):
+        #                         textTemp = textTemp + '{}'.format(path.nodes[index].id) + ')[delay={}]'.format(path.delay)
+        #                     else:
+        #                         textTemp = textTemp + '{}'.format(path.nodes[index]) + ', '
+        #                 pathslist2.append(textTemp)
+        #
+        # print(pathslist2)
+        #
+        #
+        # pathslist3 = []
+        # for s in hostsList:
+        #     for d in hostsList:
+        #         if((s.id,d.id) in oldFirstKthPaths.keys()):
+        #             paths = oldFirstKthPaths[s.id, d.id]
+        #
+        #
+        #             for path in paths:
+        #                 textTemp = '('
+        #                 for index in range (len(path.nodes)):
+        #                     if(index ==0):
+        #                         textTemp = textTemp + '{}'.format(path.nodes[index].id) + ', '
+        #                     elif(index == len(path.nodes)-1):
+        #                         textTemp = textTemp + '{}'.format(path.nodes[index].id) + ')[delay={}]'.format(path.delay)
+        #                     else:
+        #                         textTemp = textTemp + '{}'.format(path.nodes[index]) + ', '
+        #                 pathslist3.append(textTemp)
+        #
+        # print(pathslist3)
+        #
+        # print(pathslist == pathslist2)
+        # print(pathslist == pathslist3)
+        # print(pathslist2 == pathslist3)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def main():
+
+    #the security impact simulation parameters#
+
+    typeOfSecurityAttack = 0            # This parameter to choose the type of attack to be tested (0 -> insert attack at the end
+                                        #                                                           1 ->
+
+    intensivityOfTheAttack = 0.5        # How strong is the attack (where 0 is none and 1 is all)
+
+    attackStartTime = 0.1                 # when the attack will start (0   = at the beginning
+                                        #                             1   = at the end
+                                        #                             0.5 = after trying to schedule 50% of TSN flows
+
+    typeofSchedulingAlgorithm = 0       # The used scheduling algorithm
+
+    ###########################################
+
+
+    testSecurityImpact(typeOfSecurityAttack, intensivityOfTheAttack, attackStartTime
+                       )
 
 
 
