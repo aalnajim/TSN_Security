@@ -13,6 +13,7 @@ import math
 from timeit import default_timer as timer
 from itertools import islice
 from TSNHost import TSNHost
+import sys
 from myThread import myThread
 from myThread2 import myThread2
 #import queue
@@ -738,10 +739,10 @@ def SWOTS_ASAP_WS(G, tempTSNFlow,scheduledFlowsSWOTS_ASAP_WS,CLength,time, FTT):
                             #tempIndex = int((index/2)-1)
                             gap = SFO.__getitem__(index2 - 1).cumulativeDelay  - operations.__getitem__(index - 1).cumulativeDelay
                             #gapModified = SFO.__getitem__(index2 - 1).cumulativeDelay%CLength - operations.__getitem__(index - 1).cumulativeDelay%CLength
-                            if(gap<=0):
-                                gap = SO.cumulativeDelay - operations.__getitem__(index - 1).cumulativeDelay
-                                tempIndex = int((index / 2) - 1)
-                                if(gap>queuingDelays[tempIndex]):
+                            if(gap<=0):     # the arrival time of the new flow is at the same time or after the arrival time of the overlapped scheduled flow
+                                gap = SO.cumulativeDelay - operations.__getitem__(index - 1).cumulativeDelay    #the difference between the end time of scheduled flow and the arrival time of the new flow [waiting time]
+                                tempIndex = int((index / 2) - 1)  # This index is for queuing delay (we divided it by two because we have two operations for each switch)
+                                if(gap>queuingDelays[tempIndex]):   # the new flow will arrive after the (transmission + queuing delay) of the scheduled traffic
                                     #startTime = startTime + gap
                                     tempAdjusment = (gap - queuingDelays[tempIndex])
                                     timeStamp = timeStamp + tempAdjusment
@@ -765,9 +766,9 @@ def SWOTS_ASAP_WS(G, tempTSNFlow,scheduledFlowsSWOTS_ASAP_WS,CLength,time, FTT):
                                             queuingDelays = [0 for _ in range(len(tempTSNFlow.path.nodes) - 2)]
                                     flag = 1
                                     break
-                            else:
+                            else:        # the arrival time of the new flow is before the arrival time of the overlapped scheduled flow
                                 transmissionOperationLength = operation.cumulativeDelay - operations.__getitem__(index - 1).cumulativeDelay
-                                if(gap< transmissionOperationLength):
+                                if(gap< transmissionOperationLength):       # the arrival time of the new flow during the transmission of the scheduled flow
                                     gap = SO.cumulativeDelay - operations.__getitem__(index - 1).cumulativeDelay
                                     tempIndex = int((index / 2) - 1)
                                     if (gap > queuingDelays[tempIndex]):
@@ -1010,7 +1011,38 @@ def countGates_ASAP_WS(G, scheduledSWOTS):
 
 
 def testSecurityImpact(typeOfSecurityAttack, attackRate, attackStartTime, typeofSchedulingAlgorithm):
-    if(typeOfSecurityAttack == 0):
+
+
+        # Check the inputs #
+        ##########################################
+        expectedTypesOfSecurityAttack = [0, 1, 2, 3]
+        expectedtypeofSchedulingAlgorithm = [0, 1, 2, 3]
+
+        #Testing the first input (typeOfSecurityAttack)
+        if typeOfSecurityAttack not in expectedTypesOfSecurityAttack:
+            sys.exit('Enter a valid number for the type of security attack between 0 and 3')
+
+        #Testing the second input (attackRate)
+        try:
+            if(attackRate < 0 or attackRate > 1):
+                raise Exception("Enter a valid attack rate between 0 and 1")
+        except:
+            sys.exit('Enter a valid attack rate between 0 and 1')
+
+        #Testing the third input (attackStartTime)
+        try:
+            if(attackStartTime < 0 or attackStartTime > 1):
+                raise Exception("Enter a valid start time between 0 and 1 out of the total number of TSN flows")
+        except:
+            sys.exit('Enter a valid start time between 0 and 1 out of the total number of TSN flows')
+
+        # Testing the first input (typeofSchedulingAlgorithm)
+        if typeofSchedulingAlgorithm not in expectedtypeofSchedulingAlgorithm:
+            sys.exit('Enter a valid number for the type of security attack between 0 and 3')
+
+
+        ##########################################
+
 
         # Setting the simulation parameters #
         ##########################################
@@ -1025,6 +1057,7 @@ def testSecurityImpact(typeOfSecurityAttack, attackRate, attackStartTime, typeof
         bandwidthWeight = 1 / 3
         hopCountWeight = 1 / 3
         ##########################################
+
 
         # Creating the graphs #
         ##########################################
@@ -1154,48 +1187,122 @@ def testSecurityImpact(typeOfSecurityAttack, attackRate, attackStartTime, typeof
 
                         # Scheduling Phase #
                         ##########################################
-                        if(typeofSchedulingAlgorithm == 4):
-                            start = timer()
-                            tempScheduled = SWOTS_AEAP_WS(G, tempTSNFlow, scheduledFlows,
-                                                                       CLength)
-                            end = timer()
-                        elif(typeofSchedulingAlgorithm == 3):
-                            start = timer()
-                            tempScheduled = SWOTS_AEAP(G, tempTSNFlow, scheduledFlows,
-                                                                       CLength)
-                            end = timer()
-                        elif(typeofSchedulingAlgorithm == 2):
-                            start = timer()
-                            tempScheduled = SWOTS_ASAP_WS(G, tempTSNFlow, scheduledFlows,
-                                                                       CLength, time, FTT)
-                            end = timer()
-                        elif(typeofSchedulingAlgorithm == 1):
-                            start = timer()
-                            tempScheduled = SWOTS_ASAP(G, tempTSNFlow, scheduledFlows,
-                                                                       CLength, time, FTT)
-                            end = timer()
-                        elif(typeofSchedulingAlgorithm == 0):
-                            start = timer()
-                            tempScheduled = SWTS(G, tempTSNFlow, scheduledFlows,
-                                                                       CLength, timeSlots, time, FTT)
-                            end = timer()
-                        else:
-                            print("Enter a valid number for the selected scheduling algorithm between 0 and 4")
-                        SchedulingExecutionTimes.append(
-                            (((end - start) * 1000 * 1000), tempScheduled))
+                        if(typeOfSecurityAttack == 0):
+                            if(typeofSchedulingAlgorithm == 4):
+                                start = timer()
+                                tempScheduled = SWOTS_AEAP_WS(G, tempTSNFlow, scheduledFlows,
+                                                                           CLength)
+                                end = timer()
+                            elif(typeofSchedulingAlgorithm == 3):
+                                start = timer()
+                                tempScheduled = SWOTS_AEAP(G, tempTSNFlow, scheduledFlows,
+                                                                           CLength)
+                                end = timer()
+                            elif(typeofSchedulingAlgorithm == 2):
+                                start = timer()
+                                tempScheduled = SWOTS_ASAP_WS(G, tempTSNFlow, scheduledFlows,
+                                                                           CLength, time, FTT)
+                                end = timer()
+                            elif(typeofSchedulingAlgorithm == 1):
+                                start = timer()
+                                tempScheduled = SWOTS_ASAP(G, tempTSNFlow, scheduledFlows,
+                                                                           CLength, time, FTT)
+                                end = timer()
+                            elif(typeofSchedulingAlgorithm == 0):
+                                start = timer()
+                                tempScheduled = SWTS(G, tempTSNFlow, scheduledFlows,
+                                                                           CLength, timeSlots, time, FTT)
+                                end = timer()
 
-                        if (tempScheduled):
-                            if(not fakeFlow):
-                                scheduledCounter = scheduledCounter + 1
-                            for index in range(len(tempTSNFlow.path.nodes)):
-                                if (index == 0 or index > len(tempTSNFlow.path.nodes) - 3):
-                                    continue
-                                G[tempTSNFlow.path.nodes.__getitem__(index)][
-                                    tempTSNFlow.path.nodes.__getitem__(index + 1)][
-                                    'nbOfTSN'] = \
+                            SchedulingExecutionTimes.append(
+                                (((end - start) * 1000 * 1000), tempScheduled))
+
+                            if (tempScheduled):
+                                if(not fakeFlow):
+                                    scheduledCounter = scheduledCounter + 1
+                                for index in range(len(tempTSNFlow.path.nodes)):
+                                    if (index == 0 or index > len(tempTSNFlow.path.nodes) - 3):
+                                        continue
                                     G[tempTSNFlow.path.nodes.__getitem__(index)][
                                         tempTSNFlow.path.nodes.__getitem__(index + 1)][
-                                        'nbOfTSN'] + 1
+                                        'nbOfTSN'] = \
+                                        G[tempTSNFlow.path.nodes.__getitem__(index)][
+                                            tempTSNFlow.path.nodes.__getitem__(index + 1)][
+                                            'nbOfTSN'] + 1
+
+                        elif(typeOfSecurityAttack == 1):
+                            if(fakeFlow):
+
+                                if(typeofSchedulingAlgorithm == 0):
+                                    print('Hi')
+                                else:
+                                    latestPossibleTime = CLength-tempTSNFlow.flowMaxDelay
+                                    if(latestPossibleTime<0):
+                                        transmissionStartTime = 0
+                                    else:
+                                        transmissionStartTime = random.randint(0,latestPossibleTime)
+
+                                    if(typeofSchedulingAlgorithm % 2 == 0):
+                                        queuingDelays = [0 for _ in range(len(tempTSNFlow.path.nodes)-2)]
+                                        scheduledFlows.append((tempTSNFlow,transmissionStartTime,queuingDelays))
+                                    else:
+                                        scheduledFlows.append((tempTSNFlow, transmissionStartTime))
+
+                                # elif (typeofSchedulingAlgorithm == 2):
+                                #     tempScheduled = SWOTS_ASAP_WS(G, tempTSNFlow, scheduledFlows,
+                                #                                   CLength, time, FTT)
+                                # elif (typeofSchedulingAlgorithm == 1):
+                                #     tempScheduled = SWOTS_ASAP(G, tempTSNFlow, scheduledFlows,
+                                #                                CLength, time, FTT)
+                                # elif (typeofSchedulingAlgorithm == 0):
+                                #     tempScheduled = SWTS(G, tempTSNFlow, scheduledFlows,
+                                #                          CLength, timeSlots, time, FTT)
+                                # else:
+                                #     print("Enter a valid number for the selected scheduling algorithm between 0 and 4")
+
+                            else:
+                                if (typeofSchedulingAlgorithm == 4):
+                                    start = timer()
+                                    tempScheduled = SWOTS_AEAP_WS(G, tempTSNFlow, scheduledFlows,
+                                                                  CLength)
+                                    end = timer()
+                                elif (typeofSchedulingAlgorithm == 3):
+                                    start = timer()
+                                    tempScheduled = SWOTS_AEAP(G, tempTSNFlow, scheduledFlows,
+                                                               CLength)
+                                    end = timer()
+                                elif (typeofSchedulingAlgorithm == 2):
+                                    start = timer()
+                                    tempScheduled = SWOTS_ASAP_WS(G, tempTSNFlow, scheduledFlows,
+                                                                  CLength, time, FTT)
+                                    end = timer()
+                                elif (typeofSchedulingAlgorithm == 1):
+                                    start = timer()
+                                    tempScheduled = SWOTS_ASAP(G, tempTSNFlow, scheduledFlows,
+                                                               CLength, time, FTT)
+                                    end = timer()
+                                elif (typeofSchedulingAlgorithm == 0):
+                                    start = timer()
+                                    tempScheduled = SWTS(G, tempTSNFlow, scheduledFlows,
+                                                         CLength, timeSlots, time, FTT)
+                                    end = timer()
+
+                                SchedulingExecutionTimes.append(
+                                    (((end - start) * 1000 * 1000), tempScheduled))
+
+                                if (tempScheduled):
+                                    if (not fakeFlow):
+                                        scheduledCounter = scheduledCounter + 1
+                                    for index in range(len(tempTSNFlow.path.nodes)):
+                                        if (index == 0 or index > len(tempTSNFlow.path.nodes) - 3):
+                                            continue
+                                        G[tempTSNFlow.path.nodes.__getitem__(index)][
+                                            tempTSNFlow.path.nodes.__getitem__(index + 1)][
+                                            'nbOfTSN'] = \
+                                            G[tempTSNFlow.path.nodes.__getitem__(index)][
+                                                tempTSNFlow.path.nodes.__getitem__(index + 1)][
+                                                'nbOfTSN'] + 1
+
 
 
             time = time + random.randint(1, CLength + 1)
@@ -1216,6 +1323,8 @@ def testSecurityImpact(typeOfSecurityAttack, attackRate, attackStartTime, typeof
             print('nb of scheduled flows using SWOTS_AEAP: {}'.format(scheduledCounter))
         elif(typeofSchedulingAlgorithm == 4):
             print('nb of scheduled flows using SWOTS_AEAP_WS: {}'.format(scheduledCounter))
+
+        # return scheduledCounter/routedCounter
 
 
 
@@ -1266,16 +1375,16 @@ def main():
 
     #the security impact simulation parameters#
 
-    typeOfSecurityAttack = 0            # This parameter to choose the type of attack to be tested (0 -> insert attack at the end
-                                        #                                                           1 ->
+    typeOfSecurityAttack = 1            # This parameter to choose the type of attack to be tested (0 -> insert attack at the end
+                                        #                                                           1 -> insert attack (randomly)
 
     intensivityOfTheAttack = 0.5        # How strong is the attack (where 0 is none and 1 is all)
 
-    attackStartTime = 0.5                 # when the attack will start (0   = at the beginning
+    attackStartTime = 0.5               # when the attack will start (0   = at the beginning
                                         #                             1   = at the end
                                         #                             0.5 = after trying to schedule 50% of TSN flows
 
-    typeofSchedulingAlgorithm = 4       # The used scheduling algorithm (0 = SWTS
+    typeofSchedulingAlgorithm = 2       # The used scheduling algorithm (0 = SWTS
                                         #                                1 = SWOTS_ASAP
                                         #                                2 = SWOTS_ASAP_WS
                                         #                                3 = SWOTS_AEAP
@@ -1283,9 +1392,20 @@ def main():
 
     ###########################################
 
-
     testSecurityImpact(typeOfSecurityAttack, intensivityOfTheAttack, attackStartTime, typeofSchedulingAlgorithm
                        )
+
+
+    # total = 0
+    # for i in range(0, 10):
+    #     total = total + testSecurityImpact(typeOfSecurityAttack, intensivityOfTheAttack, attackStartTime, typeofSchedulingAlgorithm
+    #                        )
+    # avg = total / 10
+    # print()
+    # print()
+    # print('===============================')
+    # print('The average is: ')
+    # print(avg)
 
 
 
