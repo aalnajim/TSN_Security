@@ -1245,6 +1245,74 @@ def testSecurityImpact(typeOfSecurityAttack, attackRate, attackStartTime, typeof
                                     if(typeofSchedulingAlgorithm % 2 == 0):
                                         queuingDelays = [0 for _ in range(len(tempTSNFlow.path.nodes)-2)]
                                         scheduledFlows.append((tempTSNFlow,transmissionStartTime,queuingDelays))
+                                        scheduledItem = scheduledFlows[len(scheduledFlows)-1]
+                                        SF = scheduledItem.__getitem__(0)
+                                        SST = scheduledItem.__getitem__(1)
+                                        SQD = scheduledItem.__getitem__(2)
+                                        # print(SF.path.nodes)
+                                        # print(SST)
+                                        # print(SQD)
+                                        SFO = map_ws(G, SF, SST, SQD)
+
+                                        print("=====================")
+                                        print(display(SF.path))
+
+
+                                        ##############################
+                                        cmulativeTime = SST
+                                        for i in range(len(tempTSNFlow.path.nodes)):
+                                            if (i == 0):
+                                                id = '{},{}trans = {}'.format(tempTSNFlow.path.nodes.__getitem__(i).id,
+                                                                         tempTSNFlow.path.nodes.__getitem__(i + 1),
+                                                                              tempTSNFlow.path.nodes.__getitem__(
+                                                                                  i).transmissonDelay
+                                                                              )
+                                                print(id)
+
+
+                                                id = '{},{}proc = {}'.format(tempTSNFlow.path.nodes.__getitem__(i).id,
+                                                                        tempTSNFlow.path.nodes.__getitem__(i + 1),
+                                                                             tempTSNFlow.path.nodes.__getitem__(
+                                                                                 i).processingDelay
+                                                                             )
+                                                print(id)
+
+                                            elif (i < len(path.nodes) - 2):
+                                                id = '{},{}trans = {}   and    queuing = {}'.format(tempTSNFlow.path.nodes.__getitem__(i),
+                                                                         tempTSNFlow.path.nodes.__getitem__(i + 1), G.nodes[tempTSNFlow.path.nodes.__getitem__(i)][
+                                                                    'transmissionDelay'], queuingDelays[index]
+                                                                                                    )
+                                                print(id)
+                                                index = index + 1
+
+                                                id = '{},{}proc = {}'.format(tempTSNFlow.path.nodes.__getitem__(i),
+                                                                        tempTSNFlow.path.nodes.__getitem__(i + 1), G[tempTSNFlow.path.nodes.__getitem__(i)][
+                                                                    tempTSNFlow.path.nodes.__getitem__(i + 1)][
+                                                                    'processingDelay'])
+                                                print(id)
+
+                                            elif (i < len(path.nodes) - 1):
+                                                id = '{},{}trans = {}   and    queuing = {}'.format(tempTSNFlow.path.nodes.__getitem__(i),
+                                                                         tempTSNFlow.path.nodes.__getitem__(i + 1).id, G.nodes[tempTSNFlow.path.nodes.__getitem__(i)][
+                                                                    'transmissionDelay'] , queuingDelays[index])
+                                                print(id)
+                                                index = index + 1
+
+                                            else:
+                                                id = '{},{}proc = {}'.format(tempTSNFlow.path.nodes.__getitem__(i - 1),
+                                                                        tempTSNFlow.path.nodes.__getitem__(i).id, tempTSNFlow.path.nodes.__getitem__(
+                                                    i).processingDelay)
+                                                print(id)
+
+
+                                        ##############################
+
+                                        for OOO in SFO:
+                                            print('The cumulativeDelay for operation {} is {}'.format(OOO.id,OOO.cumulativeDelay))
+                                        print("=====================")
+                                        # print(tempTSNFlow.path.nodes)
+                                        # print(transmissionStartTime)
+                                        # print(queuingDelays)
                                     else:
                                         scheduledFlows.append((tempTSNFlow, transmissionStartTime))
 
