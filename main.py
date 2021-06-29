@@ -983,6 +983,18 @@ def countGates_ASAP_WS(G, scheduledSWOTS):
 
 
 
+def computeAvgQueuingDelayPerFlowPerHop(scheuledFlows):
+    counter = 0
+    total = 0
+    avg = 0
+    for scheduledItem in scheuledFlows:
+        queuingDelays = scheduledItem.__getitem__(2)  # return the queuing delay: scheduledItem = (TSN Flow, Transmission Start Time, Queuing Delaysof the Flow at each hop in the Path)
+        for queuingDelay in queuingDelays:
+            counter = counter + 1
+            total = total + queuingDelay
+
+    avg = total/counter
+    return int(avg)
 
 
 
@@ -1016,7 +1028,7 @@ def testSecurityImpact(typeOfSecurityAttack, attackRate, attackStartTime, typeof
         # Check the inputs #
         ##########################################
         expectedTypesOfSecurityAttack = [0, 1, 2, 3]
-        expectedtypeofSchedulingAlgorithm = [0, 1, 2, 3]
+        expectedtypeofSchedulingAlgorithm = [0, 1, 2, 3, 4]
 
         #Testing the first input (typeOfSecurityAttack)
         if typeOfSecurityAttack not in expectedTypesOfSecurityAttack:
@@ -1038,7 +1050,7 @@ def testSecurityImpact(typeOfSecurityAttack, attackRate, attackStartTime, typeof
 
         # Testing the first input (typeofSchedulingAlgorithm)
         if typeofSchedulingAlgorithm not in expectedtypeofSchedulingAlgorithm:
-            sys.exit('Enter a valid number for the type of security attack between 0 and 3')
+            sys.exit('Enter a valid number for the type of scheduling between 0 and 4')
 
 
         ##########################################
@@ -1147,7 +1159,7 @@ def testSecurityImpact(typeOfSecurityAttack, attackRate, attackStartTime, typeof
                 if (x <= attackRate and counter/nbOfTSNFlows>attackStartTime):
                     fakeFlow = True
                 if(not fakeFlow):
-                    counter = counter + 1  # increase the counter by 1
+                    counter = counter + 1  # increment the real TSN flows counter by 1
 
                 tempScheduled = False
                 tempRoutingList = firstKthPaths
@@ -1232,9 +1244,9 @@ def testSecurityImpact(typeOfSecurityAttack, attackRate, attackStartTime, typeof
 
                         elif(typeOfSecurityAttack == 1):
                             if(fakeFlow):
-
+                                tempScheduled = True
                                 if(typeofSchedulingAlgorithm == 0):
-                                    print('Hi')
+                                    scheduledFlows.append((tempTSNFlow,random.randint(0,len(timeSlots)-1)))
                                 else:
                                     latestPossibleTime = CLength-tempTSNFlow.flowMaxDelay
                                     if(latestPossibleTime<0):
@@ -1243,92 +1255,12 @@ def testSecurityImpact(typeOfSecurityAttack, attackRate, attackStartTime, typeof
                                         transmissionStartTime = random.randint(0,latestPossibleTime)
 
                                     if(typeofSchedulingAlgorithm % 2 == 0):
-                                        queuingDelays = [0 for _ in range(len(tempTSNFlow.path.nodes)-2)]
+                                        avgQueuingDelay = computeAvgQueuingDelayPerFlowPerHop(scheduledFlows)
+                                        queuingDelays = [random.randint(int(avgQueuingDelay-(avgQueuingDelay/(len(tempTSNFlow.path.nodes)-2))), int(avgQueuingDelay+(avgQueuingDelay/(len(tempTSNFlow.path.nodes)-2)))) for _ in range(len(tempTSNFlow.path.nodes)-2)]
                                         scheduledFlows.append((tempTSNFlow,transmissionStartTime,queuingDelays))
-                                        scheduledItem = scheduledFlows[len(scheduledFlows)-1]
-                                        SF = scheduledItem.__getitem__(0)
-                                        SST = scheduledItem.__getitem__(1)
-                                        SQD = scheduledItem.__getitem__(2)
-                                        # print(SF.path.nodes)
-                                        # print(SST)
-                                        # print(SQD)
-                                        SFO = map_ws(G, SF, SST, SQD)
-
-                                        print("=====================")
-                                        print(SF.id)
-                                        print(display(SF.path))
-                                        print(queuingDelays)
-
-                                        ##############################
-                                        index = 0
-                                        path = SF.path
-                                        for i in range(len(tempTSNFlow.path.nodes)):
-                                            if (i == 0):
-                                                id = '{},{}trans = {}'.format(tempTSNFlow.path.nodes.__getitem__(i).id,
-                                                                         tempTSNFlow.path.nodes.__getitem__(i + 1),
-                                                                              tempTSNFlow.path.nodes.__getitem__(
-                                                                                  i).transmissonDelay
-                                                                              )
-                                                print(id)
-
-
-                                                id = '{},{}proc = {}'.format(tempTSNFlow.path.nodes.__getitem__(i).id,
-                                                                        tempTSNFlow.path.nodes.__getitem__(i + 1),
-                                                                             tempTSNFlow.path.nodes.__getitem__(
-                                                                                 i).processingDelay
-                                                                             )
-                                                print(id)
-
-                                            elif (i < len(path.nodes) - 2):
-                                                id = '{},{}trans = {}   and    queuing = {}'.format(tempTSNFlow.path.nodes.__getitem__(i),
-                                                                         tempTSNFlow.path.nodes.__getitem__(i + 1), G.nodes[tempTSNFlow.path.nodes.__getitem__(i)][
-                                                                    'transmissionDelay'], queuingDelays[index]
-                                                                                                    )
-                                                print(id)
-                                                index = index + 1
-
-                                                id = '{},{}proc = {}'.format(tempTSNFlow.path.nodes.__getitem__(i),
-                                                                        tempTSNFlow.path.nodes.__getitem__(i + 1), G[tempTSNFlow.path.nodes.__getitem__(i)][
-                                                                    tempTSNFlow.path.nodes.__getitem__(i + 1)][
-                                                                    'processingDelay'])
-                                                print(id)
-
-                                            elif (i < len(path.nodes) - 1):
-                                                id = '{},{}trans = {}   and    queuing = {}'.format(tempTSNFlow.path.nodes.__getitem__(i),
-                                                                         tempTSNFlow.path.nodes.__getitem__(i + 1).id, G.nodes[tempTSNFlow.path.nodes.__getitem__(i)][
-                                                                    'transmissionDelay'] , queuingDelays[index])
-                                                print(id)
-                                                index = index + 1
-
-                                            else:
-                                                id = '{},{}proc = {}'.format(tempTSNFlow.path.nodes.__getitem__(i - 1),
-                                                                        tempTSNFlow.path.nodes.__getitem__(i).id, tempTSNFlow.path.nodes.__getitem__(
-                                                    i).processingDelay)
-                                                print(id)
-
-
-                                        ##############################
-
-                                        for OOO in SFO:
-                                            print('The cumulativeDelay for operation {} is {}'.format(OOO.id,OOO.cumulativeDelay))
-                                        print("=====================")
-                                        # print(tempTSNFlow.path.nodes)
-                                        # print(transmissionStartTime)
-                                        # print(queuingDelays)
                                     else:
                                         scheduledFlows.append((tempTSNFlow, transmissionStartTime))
 
-                                # elif (typeofSchedulingAlgorithm == 2):
-                                #     tempScheduled = SWOTS_ASAP_WS(G, tempTSNFlow, scheduledFlows,
-                                #                                   CLength, time, FTT)
-                                # elif (typeofSchedulingAlgorithm == 1):
-                                #     tempScheduled = SWOTS_ASAP(G, tempTSNFlow, scheduledFlows,
-                                #                                CLength, time, FTT)
-                                # elif (typeofSchedulingAlgorithm == 0):
-                                #     tempScheduled = SWTS(G, tempTSNFlow, scheduledFlows,
-                                #                          CLength, timeSlots, time, FTT)
-                                # else:
-                                #     print("Enter a valid number for the selected scheduling algorithm between 0 and 4")
 
                             else:
                                 if (typeofSchedulingAlgorithm == 4):
@@ -1454,7 +1386,7 @@ def main():
                                         #                             1   = at the end
                                         #                             0.5 = after trying to schedule 50% of TSN flows
 
-    typeofSchedulingAlgorithm = 2       # The used scheduling algorithm (0 = SWTS
+    typeofSchedulingAlgorithm = 4       # The used scheduling algorithm (0 = SWTS
                                         #                                1 = SWOTS_ASAP
                                         #                                2 = SWOTS_ASAP_WS
                                         #                                3 = SWOTS_AEAP
