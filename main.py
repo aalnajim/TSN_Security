@@ -1136,7 +1136,7 @@ def testSecurityImpact(typeOfSecurityAttack, attackRate, attackStartTime, typeof
                 while s == d:
                     s = random.choice(hostsList)
                     d = random.choice(hostsList)
-                tempTSNFlow = TSNFlow.TSNFlow(counter, s,
+                tempTSNFlow = TSNFlow.TSNFlow(counterTotal, s,
                                               d)  # generate a TSN flow from a randomly selected source to a randomly selected destination
                 flowsList.append(
                     (tempTSNFlow, time))  # add the generated TSN flow and the generation time to the TSN flows list
@@ -1255,11 +1255,13 @@ def testSecurityImpact(typeOfSecurityAttack, attackRate, attackStartTime, typeof
                                         SFO = map_ws(G, SF, SST, SQD)
 
                                         print("=====================")
+                                        print(SF.id)
                                         print(display(SF.path))
-
+                                        print(queuingDelays)
 
                                         ##############################
-                                        cmulativeTime = SST
+                                        index = 0
+                                        path = SF.path
                                         for i in range(len(tempTSNFlow.path.nodes)):
                                             if (i == 0):
                                                 id = '{},{}trans = {}'.format(tempTSNFlow.path.nodes.__getitem__(i).id,
