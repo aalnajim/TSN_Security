@@ -996,6 +996,93 @@ def computeAvgQueuingDelayPerFlowPerHop(scheuledFlows):
     avg = total/counter
     return int(avg)
 
+def convertPathToAlistOfEdges(G,path):
+    tempListOfEdges = []
+    for index in range(len(path.nodes)):
+        if (index == 0):
+            # tempLink = '({},{})'.format(path.nodes.__getitem__(index).id, path.nodes.__getitem__(index + 1))
+            # pathEdges.append(tempLink)
+            continue
+        elif (index < len(path.nodes) - 2):
+            tempLink = '({},{})'.format(path.nodes.__getitem__(index),
+                                        path.nodes.__getitem__(index + 1))
+            tempListOfEdges.append(tempLink)
+        elif (index == len(path.nodes) - 2):
+            tempLink = '({},{})'.format(path.nodes.__getitem__(index),
+                                        path.nodes.__getitem__(index + 1).id)
+            tempListOfEdges.append(tempLink)
+    return tempListOfEdges
+
+
+def computeCollisionPerFlowSWTS(G, scheduledFlows, deletedFlows, listofCollisions, tempDeletedItem):
+    #print("SWTS")
+    tempDeletedTSNFlow = tempDeletedItem.__getitem__(0)
+    tempDeletedTimeSlot = tempDeletedItem.__getitem__(1)
+    distinctCollisionCounterPerFlow = 0     #Count the number of distinct collision per flow. In other words,  if the deleted flow collided with another flow in 3 egress ports, it will be count as 1
+    CollisionCounterPerFlow = 0             #Count the number of distinct collision per flow. In other words,  if the deleted flow collided with another flow in 3 egress ports, it will be count as 3
+    ListOfCollidedTSNFlows = []             #A list of all collided flows with the current flow; a single flow will exist in this list multiple times, if it collided with the current flow in multiple egress ports
+    ListOfCollidedLocations = []            #A list of all collision location. Each item in this list corresponds to an item in the list 'ListOfCollidedTSNFlows'
+
+    for scheduledItem in scheduledFlows:
+        tempScheduledTSNFlow = scheduledItem.__getitem__(0)
+        tempScheduledTimeSlot = scheduledItem.__getitem__(1)
+        if(tempDeletedTimeSlot != tempScheduledTimeSlot):
+            continue
+        else:
+            deletedPathEdges = convertPathToAlistOfEdges(G,tempDeletedTSNFlow.path)
+            scheduledPathEdges = convertPathToAlistOfEdges(G,tempScheduledTSNFlow.path)
+
+            for deletedEdge in deletedPathEdges:
+                if(deletedEdge in scheduledPathEdges):
+                    CollisionCounterPerFlow = CollisionCounterPerFlow + 1
+                    ListOfCollidedTSNFlows.append(tempScheduledTSNFlow)
+                    ListOfCollidedLocations.append(deletedEdge)
+            if(CollisionCounterPerFlow>0):
+                distinctCollisionCounterPerFlow = distinctCollisionCounterPerFlow + 1
+
+
+
+
+
+
+def computeCollisionPerFlowSWOTS_WS(G, scheduledFlows, deletedFlows, listofCollisions, tempDeletedItem):
+    #print("SWOTS_ASAP_WS or SWOTS_AEAP_WS")
+
+    tempDeletedTSNFlow = tempDeletedItem.__getitem__(0)
+    tempDeletedStartTime = tempDeletedItem.__getitem__(1)
+    tempDeletedQueuingDelay = tempDeletedItem.__getitem__(2)
+    distinctCollisionCounterPerFlow = 0     #Count the number of distinct collision per flow. In other words,  if the deleted flow collided with another flow in 3 egress ports, it will be count as 1
+    CollisionCounterPerFlow = 0             #Count the number of distinct collision per flow. In other words,  if the deleted flow collided with another flow in 3 egress ports, it will be count as 3
+    ListOfCollidedTSNFlows = []             #A list of all collided flows with the current flow; a single flow will exist in this list multiple times, if it collided with the current flow in multiple egress ports
+    ListOfCollidedLocations = []            #A list of all collision location. Each item in this list corresponds to an item in the list 'ListOfCollidedTSNFlows'
+
+
+def computeCollisionPerFlowSWOTS(G, scheduledFlows, deletedFlows, listofCollisions, tempDeletedItem):
+    #print("SWOTS_ASAP or SWOTS_AEAP")
+    tempDeletedTSNFlow = tempDeletedItem.__getitem__(0)
+    tempDeletedStartTime = tempDeletedItem.__getitem__(1)
+    distinctCollisionCounterPerFlow = 0     #Count the number of distinct collision per flow. In other words,  if the deleted flow collided with another flow in 3 egress ports, it will be count as 1
+    CollisionCounterPerFlow = 0             #Count the number of distinct collision per flow. In other words,  if the deleted flow collided with another flow in 3 egress ports, it will be count as 3
+    ListOfCollidedTSNFlows = []             #A list of all collided flows with the current flow; a single flow will exist in this list multiple times, if it collided with the current flow in multiple egress ports
+    ListOfCollidedLocations = []            #A list of all collision location. Each item in this list corresponds to an item in the list 'ListOfCollidedTSNFlows'
+
+
+def computeCollisionPerFlow(G, scheduledFlows, deletedFlows, listofCollisions, typeOfSchedulingAlgorithm):         #this function computes collisions and fill the collisions list after the attack type 2 and 3 (remove attack)
+
+    for tempDeletedItem in deletedFlows:
+        if(typeOfSchedulingAlgorithm == 0):         # deletedItem in the form of (TSN flow, NextSlot id)
+            computeCollisionPerFlowSWTS(G, scheduledFlows, deletedFlows, listofCollisions, tempDeletedItem)
+        elif(typeOfSchedulingAlgorithm % 2 == 0):   # deletedItem in the form of (TSN flow, startTime, QueuingDelays list)
+            computeCollisionPerFlowSWOTS_WS(G, scheduledFlows, deletedFlows, listofCollisions, tempDeletedItem)
+        else:                                       # deletedItem in the form of (TSN flow, startTime)
+            computeCollisionPerFlowSWOTS(G, scheduledFlows, deletedFlows, listofCollisions, tempDeletedItem)
+
+
+
+
+
+
+
 
 
 def insertAttack(G, hostsList , firstKthPaths, timeSlotsAmount, nbOfTSNFlows, pFlow, TSNCountWeight, bandwidthWeight, hopCountWeight,
@@ -1229,23 +1316,50 @@ def deleteAttack(G, hostsList , firstKthPaths, timeSlotsAmount, nbOfTSNFlows, pF
     flowsList = []  # list of all created TSN flows (deleted and non deleted)
     scheduledFlows = []  # list of all scheduled TSN flows
     deletedScheduledFlows = []   #list of all deleted scheduled TSN flows
-    #counter = 0  # count the created undeleted TSN flows
-    counterTotal = 0  # count the total created flows (deleted and undeleted)
-    scheduledCounter = 0  # count the scheduled TSN flows (routed and scheduled)
-    routedCounter = 0  # count the routed real TSN flows, but not scheduled
-    totalRoutedCounter = 0  # count the total routed TSN flows (deleted and non deleted), but not scheduled
+    counterTotal = 0  # count the total created flows (deleted and undeleted, scheduled and non scheduled)
+    scheduledCounter = 0        # count the scheduled TSN flows (routed and scheduled and not deleted)
+    totalscheduledCounter = 0   # count the scheduled TSN flows (routed and scheduled (whether deleted or not) [really transmitted]
+    routedCounter = 0  # count the routed real TSN flows, that could be scheduled or scheduled and deleted
     time = 0  # Track the arrival time of TSN flows
     routingExecutionTimes = []  # a list of the execution times of the routing algorithm for all flows in microseconds [(1.3,True),(0.7,False)]
     SchedulingExecutionTimes = []  # a list of the execution times of the SWOTS (As Early As Possible) algorithm for all flows in microseconds [(1.3,True),(0.7,False)]
-    theAmountofFakeFlows = attackRate * nbOfTSNFlows
-    while (True):
+    listofCollisions = [] # a list of all collided flows resulted from this attack in the form of
+                          # [(TSNFlowID Integer, distinctCollisionCounterPerFlow Integer,
+                          #   CollisionCounterPerHop Integer, ListOfCollidedTSNFlows List of Integers,
+                          #   ListOfCollidedLocations List of String), (.....)]
 
-        if counterTotal >= nbOfTSNFlows:  # if we reached the number of TSN flows, stop
+    while (True):
+        if(counterTotal > nbOfTSNFlows):
             break
-        changeLinksBandwidth(
-            G)  # change the link bandwidth randomly, in future it will be based on the best effort streams
-        x = random.random()
-        if (x <= pFlow):
+        attackPropability= random.random()
+        if (attackPropability<attackRate and (counterTotal / nbOfTSNFlows > attackStartTime)):  # Attack Event
+            if(len(scheduledFlows) != 0):
+                scheduledCounter = scheduledCounter - 1
+                if(typeOfSecurityAttack ==2): # delete from the end
+                    tempDeletedScheduledItem = scheduledFlows.__getitem__(len(scheduledFlows) - 1)
+                    deletedScheduledFlows.append(tempDeletedScheduledItem)
+                    scheduledFlows.remove(tempDeletedScheduledItem)
+                else:                         # delete a random TSN flow
+                    randomFlow = random.randint(0,len(scheduledFlows)-1)
+                    tempDeletedScheduledItem = scheduledFlows.__getitem__(randomFlow)
+                    deletedScheduledFlows.append(tempDeletedScheduledItem)
+                    scheduledFlows.remove(tempDeletedScheduledItem)
+
+                if(typeofSchedulingAlgorithm ==0):      #this statement deletes the edges from the deleted time-slot
+                    tempDeletedTSNFlow = tempDeletedScheduledItem.__getitem__(0)
+                    tempTimeSlotID = tempDeletedScheduledItem.__getitem__(1)
+                    tempTimeSlot =  timeSlots.__getitem__(tempTimeSlotID)
+                    pathEdges = convertPathToAlistOfEdges(tempDeletedTSNFlow.path)
+                    for edge in pathEdges:
+                        tempTimeSlot.Scheduledlinks.remove(edge)
+
+        else:                                 # Normal case mode
+            changeLinksBandwidth(
+                G)  # change the link bandwidth randomly, in future it will be based on the best effort streams
+            x = random.random()
+            while(x> pFlow):
+                time = time + random.randint(1, CLength + 1)
+
 
             s = 0
             d = 0
@@ -1256,15 +1370,8 @@ def deleteAttack(G, hostsList , firstKthPaths, timeSlotsAmount, nbOfTSNFlows, pF
                                           d)  # generate a TSN flow from a randomly selected source to a randomly selected destination
             flowsList.append(
                 (tempTSNFlow, time))  # add the generated TSN flow and the generation time to the TSN flows list
+
             counterTotal = counterTotal + 1
-            fakeFlow = False  # this parameter to indicate if the flow is real or generated by the attacker
-            attackPropability = random.random()
-
-            if (x <= attackRate and counter / nbOfTSNFlows > attackStartTime):
-                fakeFlow = True
-            if (not fakeFlow):
-                counter = counter + 1  # increment the real TSN flows counter by 1
-
             tempScheduled = False
             tempRoutingList = firstKthPaths
             flag = 0
@@ -1280,9 +1387,7 @@ def deleteAttack(G, hostsList , firstKthPaths, timeSlotsAmount, nbOfTSNFlows, pF
                 ##########################################
 
                 if (tempRouted and flag == 0):
-                    totalRoutedCounter = totalRoutedCounter + 1
-                    if ((not fakeFlow)):
-                        routedCounter = routedCounter + 1
+                    routedCounter = routedCounter + 1
                 # elif (not (tempRouted)):  # This statement was else (which will prevent the method)
                 else:
                     break
@@ -1301,131 +1406,72 @@ def deleteAttack(G, hostsList , firstKthPaths, timeSlotsAmount, nbOfTSNFlows, pF
 
                     # Scheduling Phase #
                     ##########################################
-                    if (typeOfSecurityAttack == 0):
-                        if (typeofSchedulingAlgorithm == 4):
-                            start = timer()
-                            tempScheduled = SWOTS_AEAP_WS(G, tempTSNFlow, scheduledFlows,
-                                                          CLength)
-                            end = timer()
-                        elif (typeofSchedulingAlgorithm == 3):
-                            start = timer()
-                            tempScheduled = SWOTS_AEAP(G, tempTSNFlow, scheduledFlows,
-                                                       CLength)
-                            end = timer()
-                        elif (typeofSchedulingAlgorithm == 2):
-                            start = timer()
-                            tempScheduled = SWOTS_ASAP_WS(G, tempTSNFlow, scheduledFlows,
-                                                          CLength, time, FTT)
-                            end = timer()
-                        elif (typeofSchedulingAlgorithm == 1):
-                            start = timer()
-                            tempScheduled = SWOTS_ASAP(G, tempTSNFlow, scheduledFlows,
-                                                       CLength, time, FTT)
-                            end = timer()
-                        elif (typeofSchedulingAlgorithm == 0):
-                            start = timer()
-                            tempScheduled = SWTS(G, tempTSNFlow, scheduledFlows,
-                                                 CLength, timeSlots, time, FTT)
-                            end = timer()
+                    if (typeofSchedulingAlgorithm == 4):
+                        start = timer()
+                        tempScheduled = SWOTS_AEAP_WS(G, tempTSNFlow, scheduledFlows,
+                                                      CLength)
+                        end = timer()
+                    elif (typeofSchedulingAlgorithm == 3):
+                        start = timer()
+                        tempScheduled = SWOTS_AEAP(G, tempTSNFlow, scheduledFlows,
+                                                   CLength)
+                        end = timer()
+                    elif (typeofSchedulingAlgorithm == 2):
+                        start = timer()
+                        tempScheduled = SWOTS_ASAP_WS(G, tempTSNFlow, scheduledFlows,
+                                                      CLength, time, FTT)
+                        end = timer()
+                    elif (typeofSchedulingAlgorithm == 1):
+                        start = timer()
+                        tempScheduled = SWOTS_ASAP(G, tempTSNFlow, scheduledFlows,
+                                                   CLength, time, FTT)
+                        end = timer()
+                    elif (typeofSchedulingAlgorithm == 0):
+                        start = timer()
+                        tempScheduled = SWTS(G, tempTSNFlow, scheduledFlows,
+                                             CLength, timeSlots, time, FTT)
+                        end = timer()
 
-                        SchedulingExecutionTimes.append(
-                            (((end - start) * 1000 * 1000), tempScheduled))
+                    SchedulingExecutionTimes.append(
+                        (((end - start) * 1000 * 1000), tempScheduled))
 
-                        if (tempScheduled):
-                            if (not fakeFlow):
-                                scheduledCounter = scheduledCounter + 1
-                            for index in range(len(tempTSNFlow.path.nodes)):
-                                if (index == 0 or index > len(tempTSNFlow.path.nodes) - 3):
-                                    continue
+                    if (tempScheduled):
+                        scheduledCounter = scheduledCounter + 1
+                        totalscheduledCounter = totalscheduledCounter + 1
+                        for index in range(len(tempTSNFlow.path.nodes)):
+                            if (index == 0 or index > len(tempTSNFlow.path.nodes) - 3):
+                                continue
+                            G[tempTSNFlow.path.nodes.__getitem__(index)][
+                                tempTSNFlow.path.nodes.__getitem__(index + 1)][
+                                'nbOfTSN'] = \
                                 G[tempTSNFlow.path.nodes.__getitem__(index)][
                                     tempTSNFlow.path.nodes.__getitem__(index + 1)][
-                                    'nbOfTSN'] = \
-                                    G[tempTSNFlow.path.nodes.__getitem__(index)][
-                                        tempTSNFlow.path.nodes.__getitem__(index + 1)][
-                                        'nbOfTSN'] + 1
-
-                    elif (typeOfSecurityAttack == 1):
-                        if (fakeFlow):
-                            tempScheduled = True
-                            if (typeofSchedulingAlgorithm == 0):
-                                scheduledFlows.append((tempTSNFlow, random.randint(0, len(timeSlots) - 1)))
-                            else:
-                                latestPossibleTime = CLength - tempTSNFlow.flowMaxDelay
-                                if (latestPossibleTime < 0):
-                                    transmissionStartTime = 0
-                                else:
-                                    transmissionStartTime = random.randint(0, latestPossibleTime)
-
-                                if (typeofSchedulingAlgorithm % 2 == 0):
-                                    avgQueuingDelay = computeAvgQueuingDelayPerFlowPerHop(scheduledFlows)
-                                    queuingDelays = [random.randint(
-                                        int(avgQueuingDelay - (avgQueuingDelay / (len(tempTSNFlow.path.nodes) - 2))),
-                                        int(avgQueuingDelay + (avgQueuingDelay / (len(tempTSNFlow.path.nodes) - 2))))
-                                                     for _ in range(len(tempTSNFlow.path.nodes) - 2)]
-                                    scheduledFlows.append((tempTSNFlow, transmissionStartTime, queuingDelays))
-                                else:
-                                    scheduledFlows.append((tempTSNFlow, transmissionStartTime))
-
-
-                        else:
-                            if (typeofSchedulingAlgorithm == 4):
-                                start = timer()
-                                tempScheduled = SWOTS_AEAP_WS(G, tempTSNFlow, scheduledFlows,
-                                                              CLength)
-                                end = timer()
-                            elif (typeofSchedulingAlgorithm == 3):
-                                start = timer()
-                                tempScheduled = SWOTS_AEAP(G, tempTSNFlow, scheduledFlows,
-                                                           CLength)
-                                end = timer()
-                            elif (typeofSchedulingAlgorithm == 2):
-                                start = timer()
-                                tempScheduled = SWOTS_ASAP_WS(G, tempTSNFlow, scheduledFlows,
-                                                              CLength, time, FTT)
-                                end = timer()
-                            elif (typeofSchedulingAlgorithm == 1):
-                                start = timer()
-                                tempScheduled = SWOTS_ASAP(G, tempTSNFlow, scheduledFlows,
-                                                           CLength, time, FTT)
-                                end = timer()
-                            elif (typeofSchedulingAlgorithm == 0):
-                                start = timer()
-                                tempScheduled = SWTS(G, tempTSNFlow, scheduledFlows,
-                                                     CLength, timeSlots, time, FTT)
-                                end = timer()
-
-                            SchedulingExecutionTimes.append(
-                                (((end - start) * 1000 * 1000), tempScheduled))
-
-                            if (tempScheduled):
-                                if (not fakeFlow):
-                                    scheduledCounter = scheduledCounter + 1
-                                for index in range(len(tempTSNFlow.path.nodes)):
-                                    if (index == 0 or index > len(tempTSNFlow.path.nodes) - 3):
-                                        continue
-                                    G[tempTSNFlow.path.nodes.__getitem__(index)][
-                                        tempTSNFlow.path.nodes.__getitem__(index + 1)][
-                                        'nbOfTSN'] = \
-                                        G[tempTSNFlow.path.nodes.__getitem__(index)][
-                                            tempTSNFlow.path.nodes.__getitem__(index + 1)][
-                                            'nbOfTSN'] + 1
+                                    'nbOfTSN'] + 1
 
         time = time + random.randint(1, CLength + 1)
 
+    if(len(deletedScheduledFlows) != 0):
+        computeCollisionPerFlow(G, scheduledFlows, deletedScheduledFlows, listofCollisions, typeofSchedulingAlgorithm)
+
     # print statements
-    print('The total number of real TSN flows: {}'.format(nbOfTSNFlows))
-    print('nb of total routed flows (real and unreal): {}'.format(totalRoutedCounter))
-    print('nb of routed real flows: {}'.format(routedCounter))
+    print('The total number of TSN flows: {}'.format(nbOfTSNFlows))
+    print('nb of total routed flows: {}'.format(routedCounter))
     if (typeofSchedulingAlgorithm == 0):
-        print('nb of scheduled flows using SWTS: {}'.format(scheduledCounter))
+        print('nb of scheduled and (not) deleted flows using SWTS: {}'.format(scheduledCounter))
+        print('nb of the total scheduled flows using SWTS: {}'.format(totalscheduledCounter))
     elif (typeofSchedulingAlgorithm == 1):
-        print('nb of scheduled flows using SWOTS_ASAP: {}'.format(scheduledCounter))
+        print('nb of scheduled and (not) deleted flows using SWOTS_ASAP: {}'.format(scheduledCounter))
+        print('nb of the total scheduled flows using SWOTS_ASAP: {}'.format(totalscheduledCounter))
     elif (typeofSchedulingAlgorithm == 2):
-        print('nb of scheduled flows using SWOTS_ASAP_WS: {}'.format(scheduledCounter))
+        print('nb of scheduled and (not) deleted flows using SWOTS_ASAP_WS: {}'.format(scheduledCounter))
+        print('nb of the total scheduled flows using SWOTS_ASAP_WS: {}'.format(totalscheduledCounter))
     elif (typeofSchedulingAlgorithm == 3):
-        print('nb of scheduled flows using SWOTS_AEAP: {}'.format(scheduledCounter))
+        print('nb of scheduled and (not) deleted flows using SWOTS_AEAP: {}'.format(scheduledCounter))
+        print('nb of the total scheduled flows using SWOTS_AEAP: {}'.format(totalscheduledCounter))
     elif (typeofSchedulingAlgorithm == 4):
-        print('nb of scheduled flows using SWOTS_AEAP_WS: {}'.format(scheduledCounter))
+        print('nb of scheduled and (not) deleted flows using SWOTS_AEAP_WS: {}'.format(scheduledCounter))
+        print('nb of the total scheduled flows using SWOTS_AEAP_WS: {}'.format(totalscheduledCounter))
+    print("the total flows that cannot be seen by the scheduler: {}".format(totalscheduledCounter-scheduledCounter))
 
     # return scheduledCounter/routedCounter
 
@@ -1608,7 +1654,7 @@ def main():
 
     #the security impact simulation parameters#
 
-    typeOfSecurityAttack = 1            # This parameter to choose the type of attack to be tested (0 -> insert attack at the end
+    typeOfSecurityAttack = 3            # This parameter to choose the type of attack to be tested (0 -> insert attack at the end
                                         #                                                           1 -> insert attack (randomly)
                                         #                                                           2 -> delete attack (from the end)
                                         #                                                           3 -> delete attack (random position)
@@ -1619,7 +1665,7 @@ def main():
                                         #                             1   = at the end
                                         #                             0.5 = after trying to schedule 50% of TSN flows
 
-    typeofSchedulingAlgorithm = 4       # The used scheduling algorithm (0 = SWTS
+    typeofSchedulingAlgorithm = 3       # The used scheduling algorithm (0 = SWTS
                                         #                                1 = SWOTS_ASAP
                                         #                                2 = SWOTS_ASAP_WS
                                         #                                3 = SWOTS_AEAP
