@@ -862,6 +862,33 @@ def display(path):
 
     return text
 
+def displayListOfCollisions(listofCollisions):
+    for listItem in listofCollisions:
+        currentFlow = listItem.__getitem__(0)
+        collidedTSNFlows = listItem.__getitem__(3)
+        collisionsLocations = listItem.__getitem__(4)
+        print("Flow number {} collided with {} other flows in {} egress ports as follow:".format(currentFlow.id,
+                                                                                                 listItem.__getitem__(1),
+                                                                                                 listItem.__getitem__(2)))
+        for index in range(len(collidedTSNFlows)):
+            print("({}) It collides with TSN Flow number {} at egress port {}".format(index, collidedTSNFlows.__getitem__(
+                index).id, collisionsLocations.__getitem__(index)))
+        print("----------------------------")
+
+def displayCollisionList(collisionList, collisionPerEgressPortCounter):
+    print("There are {} distinct collisions between TSN Flows at {} egress ports in this run as follow:".format(
+        len(collisionList), collisionPerEgressPortCounter))
+    index = 0
+    for collisionListItem in collisionList:
+        firstCollidedFlow = collisionListItem.__getitem__(0)
+        secondCollidedFlow = collisionListItem.__getitem__(1)
+        collisionsLocations = collisionListItem.__getitem__(2)
+        index = index + 1
+        print("({}) TSN Flow number {} collides with TSN Flow number {} at these egress ports {}".format(index,
+                                                                                                         firstCollidedFlow.id,
+                                                                                                         secondCollidedFlow.id,
+                                                                                                         collisionsLocations))
+
 def findFlowArrivalTime(flow, flowsList):
     arrivalTime = -1
     for index in range(len(flowsList)):
@@ -1013,9 +1040,43 @@ def convertPathToAlistOfEdges(G,path):
             tempListOfEdges.append(tempLink)
     return tempListOfEdges
 
+def computeNumberOfCollisionPerRun(listofCollisions):
+    theResultList =[]      #this list contains the list of distinct collision in the form of (firstCollidedTSNFlow, secondCollidedTSNFlow, listOfCollisionLocations). Eg. (TSNFLOW1, TSNFLOW2, ["(1,2)","(5,6)"]
+    listOfComputedCollidedTSNFlows = []
+    distinctCollisionPerEgressPortCounter = 0
+    for collisionItem in listofCollisions:
+        firstCollidedTSNFlow = collisionItem.__getitem__(0)
+        collidedTSNFlows = collisionItem.__getitem__(3)
+        collidedLocations = collisionItem.__getitem__(4)
+        for index in range(len(collidedLocations)):
+            secondCollidedTSNFlow = collidedTSNFlows.__getitem__(index)
+            collidedLocation = collidedLocations.__getitem__(index)
+            distinctCollisionPerEgressPortCounter = distinctCollisionPerEgressPortCounter + 1
+            if (secondCollidedTSNFlow in listOfComputedCollidedTSNFlows):  # we have already computed this collision
+                continue
+            if (len(theResultList) > 0):
+                if (secondCollidedTSNFlow == theResultList.__getitem__(len(theResultList) - 1).__getitem__(1)):
+                    (theResultList.__getitem__(len(theResultList) - 1)).__getitem__(2).append(collidedLocation)
+                else:
+                    theResultList.append((firstCollidedTSNFlow,secondCollidedTSNFlow,[collidedLocation]))
+            else:       # This else statement will cover the first iteration where there is no entry in the list
+                theResultList.append((firstCollidedTSNFlow, secondCollidedTSNFlow, [collidedLocation]))
+        listOfComputedCollidedTSNFlows.append(firstCollidedTSNFlow)
+
+    return theResultList,distinctCollisionPerEgressPortCounter
+
+
+
+
+
 
 def computeCollisionPerFlowSWTS(G, scheduledFlows, deletedFlows, listofCollisions, tempDeletedItem):
-    #print("SWTS")
+    # This method will compute the collissions of the deleted item "tempDeletedItem" from SWTS Schedule (TSNFlow,TimeSlot)
+    # It will check all the items in the schedule and the deleted list to see the collision resulted from the delete attack
+    # The result will be added to the list "listofCollisions", which has been passed as a parameter.
+    # Each list entry of "listofCollisions" will be in the form of (DeletedTSNFlow, distinctCollisionCounterPerFlow, CollisionCounterPerFlow,
+    #                                                                   ListOfCollidedTSNFlows, ListOfCollidedLocations)
+
     tempDeletedTSNFlow = tempDeletedItem.__getitem__(0)
     tempDeletedTimeSlot = tempDeletedItem.__getitem__(1)
     distinctCollisionCounterPerFlow = 0     #Count the number of distinct collision per flow. In other words,  if the deleted flow collided with another flow in 3 egress ports, it will be count as 1
@@ -1031,16 +1092,36 @@ def computeCollisionPerFlowSWTS(G, scheduledFlows, deletedFlows, listofCollision
         else:
             deletedPathEdges = convertPathToAlistOfEdges(G,tempDeletedTSNFlow.path)
             scheduledPathEdges = convertPathToAlistOfEdges(G,tempScheduledTSNFlow.path)
-
+            isCollided = False
             for deletedEdge in deletedPathEdges:
                 if(deletedEdge in scheduledPathEdges):
                     CollisionCounterPerFlow = CollisionCounterPerFlow + 1
+                    isCollided = True
                     ListOfCollidedTSNFlows.append(tempScheduledTSNFlow)
                     ListOfCollidedLocations.append(deletedEdge)
-            if(CollisionCounterPerFlow>0):
+            if(CollisionCounterPerFlow>0 and isCollided):
                 distinctCollisionCounterPerFlow = distinctCollisionCounterPerFlow + 1
 
+    for deletedItem in deletedFlows:
+        tempAnotherDeletedTSNFlow = deletedItem.__getitem__(0)
+        tempAnotherDeletedTimeSlot = deletedItem.__getitem__(1)
+        if(tempDeletedTSNFlow.id == tempAnotherDeletedTSNFlow.id or tempDeletedTimeSlot != tempAnotherDeletedTimeSlot):
+            continue
+        else:
+            deletedPathEdges = convertPathToAlistOfEdges(G,tempDeletedTSNFlow.path)
+            anotherDeletedPathEdges = convertPathToAlistOfEdges(G,tempAnotherDeletedTSNFlow.path)
+            isCollided = False
+            for deletedEdge in deletedPathEdges:
+                if (deletedEdge in anotherDeletedPathEdges):
+                    CollisionCounterPerFlow = CollisionCounterPerFlow + 1
+                    isCollided = True
+                    ListOfCollidedTSNFlows.append(tempAnotherDeletedTSNFlow)
+                    ListOfCollidedLocations.append(deletedEdge)
+            if(CollisionCounterPerFlow>0 and isCollided):
+                distinctCollisionCounterPerFlow = distinctCollisionCounterPerFlow + 1
 
+    if(distinctCollisionCounterPerFlow>0):
+        listofCollisions.append((tempDeletedTSNFlow,distinctCollisionCounterPerFlow,CollisionCounterPerFlow, ListOfCollidedTSNFlows,ListOfCollidedLocations))
 
 
 
@@ -1066,6 +1147,21 @@ def computeCollisionPerFlowSWOTS(G, scheduledFlows, deletedFlows, listofCollisio
     ListOfCollidedTSNFlows = []             #A list of all collided flows with the current flow; a single flow will exist in this list multiple times, if it collided with the current flow in multiple egress ports
     ListOfCollidedLocations = []            #A list of all collision location. Each item in this list corresponds to an item in the list 'ListOfCollidedTSNFlows'
 
+
+    operations = map(G, tempDeletedTSNFlow, tempDeletedStartTime)
+    index = 2
+    for operation in operations[2::2]:
+        for scheduledItem in scheduledFlows:
+            SF = scheduledItem.__getitem__(0)
+            SST = scheduledItem.__getitem__(1)
+            SFO = map(G, SF, SST)
+            for SO in SFO[2::2]:
+                if (SO.id == operation.id):
+                    gap = SO.cumulativeDelay - operations.__getitem__(index - 1).cumulativeDelay
+                    if (gap > startTime):
+                        startTime = gap
+                    break
+            index = index + 2
 
 def computeCollisionPerFlow(G, scheduledFlows, deletedFlows, listofCollisions, typeOfSchedulingAlgorithm):         #this function computes collisions and fill the collisions list after the attack type 2 and 3 (remove attack)
 
@@ -1349,7 +1445,7 @@ def deleteAttack(G, hostsList , firstKthPaths, timeSlotsAmount, nbOfTSNFlows, pF
                     tempDeletedTSNFlow = tempDeletedScheduledItem.__getitem__(0)
                     tempTimeSlotID = tempDeletedScheduledItem.__getitem__(1)
                     tempTimeSlot =  timeSlots.__getitem__(tempTimeSlotID)
-                    pathEdges = convertPathToAlistOfEdges(tempDeletedTSNFlow.path)
+                    pathEdges = convertPathToAlistOfEdges(G, tempDeletedTSNFlow.path)
                     for edge in pathEdges:
                         tempTimeSlot.Scheduledlinks.remove(edge)
 
@@ -1452,8 +1548,29 @@ def deleteAttack(G, hostsList , firstKthPaths, timeSlotsAmount, nbOfTSNFlows, pF
 
     if(len(deletedScheduledFlows) != 0):
         computeCollisionPerFlow(G, scheduledFlows, deletedScheduledFlows, listofCollisions, typeofSchedulingAlgorithm)
+        #The result from the up statement is adding evey collision incidint for every TSN Flow in "listofCollisions"
+        #Each entry in the list will be in this form: (currentTSNFLow, collisionDistinctCounter, collisionCounter, theListOfCollidedTSNFlows, thelistOfCollisionLocations
+        #    currentTSNFlow: the TSN flow that we want to compute its collisions
+        #    collisionDistinctCounter: Number of collided TSN flows without repeating, if the currentTSNFlow collided with another TSN flows in multiple locations it will be counted as 1
+        #    collisionCounter: Number of collision incidints. If the currentTSNFlow collided with another TSN flows in 6 locations it will be counted as 6
+        #    theListOfCollidedTSNFlows: a list of all collided TSN flows. If the currentTSNFlow collided with another TSN flows (TS2) in 6 locations, TS2 will appear in this list 6 times
+        #    thelistOfCollisionLocations: a list of all collided locations. Each location in this list corresponds to the collided TSN flows in list "theListOfCollidedTSNFlows". An entry in this list will be in the form of String as follow: "(1,2)"
 
-    # print statements
+
+
+        collisionList, collisionPerEgressPortCounter = computeNumberOfCollisionPerRun(listofCollisions)
+        # The results from the up statement are:
+        # (1) a list that contains the following entry:
+        #     firstTSNFlow: the first collided TSN flow
+        #     secondTSNFlow: the second collided TSN flow
+        #     listOfCollisionsLocations: a list of all collision locations between these two TSN Flows. An entry in this list will be in the form of String as follow: "(1,2)"
+        #     Note unlike the previous list "listofCollisions", if two TSN flows collided with each other, they will appear once and only once in this list
+        #     So, the total number of collisions between flows per run will be "len(collisionList)" if we did not count multiple collision in different lications. Aka, at any collision one of the flows will be dropped
+        # (2) a counter of all distinct collisions in Egress Ports,i.e., the summation of "len(listOfCollisionsLocations)" for all elements in "collisionList"
+
+
+    # print statements#
+    ###################
     print('The total number of TSN flows: {}'.format(nbOfTSNFlows))
     print('nb of total routed flows: {}'.format(routedCounter))
     if (typeofSchedulingAlgorithm == 0):
@@ -1472,6 +1589,28 @@ def deleteAttack(G, hostsList , firstKthPaths, timeSlotsAmount, nbOfTSNFlows, pF
         print('nb of scheduled and (not) deleted flows using SWOTS_AEAP_WS: {}'.format(scheduledCounter))
         print('nb of the total scheduled flows using SWOTS_AEAP_WS: {}'.format(totalscheduledCounter))
     print("the total flows that cannot be seen by the scheduler: {}".format(totalscheduledCounter-scheduledCounter))
+
+    print()
+    print()
+    print("--------------------------------------------------")
+    print("|    Collision Summary For Each Collided Flow    |")
+    print("--------------------------------------------------")
+    print()
+    displayListOfCollisions(listofCollisions)
+    print()
+    print()
+    print("--------------------------------------------------")
+    print("|         Collision Summary For Each Run         |")
+    print("--------------------------------------------------")
+    print()
+    displayCollisionList(collisionList, collisionPerEgressPortCounter)
+
+
+
+
+
+
+
 
     # return scheduledCounter/routedCounter
 
@@ -1665,7 +1804,7 @@ def main():
                                         #                             1   = at the end
                                         #                             0.5 = after trying to schedule 50% of TSN flows
 
-    typeofSchedulingAlgorithm = 3       # The used scheduling algorithm (0 = SWTS
+    typeofSchedulingAlgorithm = 0       # The used scheduling algorithm (0 = SWTS
                                         #                                1 = SWOTS_ASAP
                                         #                                2 = SWOTS_ASAP_WS
                                         #                                3 = SWOTS_AEAP
