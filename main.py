@@ -1040,6 +1040,16 @@ def convertPathToAlistOfEdges(G,path):
             tempListOfEdges.append(tempLink)
     return tempListOfEdges
 
+def convertOperationIDtoEdge(operationID):
+    # convert the operation ID from "7,6proc" to "(7,6)", which is similar to edge name format in scheduling SWTS
+    firstString = operationID
+    firstArray = firstString.split(",")
+    incomeSwitch = firstArray.__getitem__(0)
+    secondString = firstArray.__getitem__(1)
+    secondArray = list(secondString)
+    outcomeSwitch = secondArray.__getitem__(0)
+    result = "({},{})".format(incomeSwitch, outcomeSwitch)
+
 def computeNumberOfCollisionPerRun(listofCollisions):
     theResultList =[]      #this list contains the list of distinct collision in the form of (firstCollidedTSNFlow, secondCollidedTSNFlow, listOfCollisionLocations). Eg. (TSNFLOW1, TSNFLOW2, ["(1,2)","(5,6)"]
     listOfComputedCollidedTSNFlows = []
