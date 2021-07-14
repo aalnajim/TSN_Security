@@ -1049,6 +1049,7 @@ def convertOperationIDtoEdge(operationID):
     secondArray = list(secondString)
     outcomeSwitch = secondArray.__getitem__(0)
     result = "({},{})".format(incomeSwitch, outcomeSwitch)
+    return result
 
 def computeNumberOfCollisionPerRun(listofCollisions):
     theResultList =[]      #this list contains the list of distinct collision in the form of (firstCollidedTSNFlow, secondCollidedTSNFlow, listOfCollisionLocations). Eg. (TSNFLOW1, TSNFLOW2, ["(1,2)","(5,6)"]
@@ -1158,19 +1159,28 @@ def computeCollisionPerFlowSWOTS(G, scheduledFlows, deletedFlows, listofCollisio
     ListOfCollidedLocations = []            #A list of all collision location. Each item in this list corresponds to an item in the list 'ListOfCollidedTSNFlows'
 
 
-    operations = map(G, tempDeletedTSNFlow, tempDeletedStartTime)
+    tempOperations = map(G, tempDeletedTSNFlow, tempDeletedStartTime)
     index = 2
-    for operation in operations[2::2]:
+    for tempOperation in tempOperations[2::2]:
         for scheduledItem in scheduledFlows:
             SF = scheduledItem.__getitem__(0)
             SST = scheduledItem.__getitem__(1)
             SFO = map(G, SF, SST)
+            index2 = 2
             for SO in SFO[2::2]:
                 if (SO.id == operation.id):
-                    gap = SO.cumulativeDelay - operations.__getitem__(index - 1).cumulativeDelay
+                    tempDeletedOperationArrivalTime = tempOperations.__getitem__(index - 1).cumulativeDelay
+                    tempDeletedOperationFinishTime = tempOperation.cumulativeDelay
+                    tempScheduledOperationArrivalTime = SFO.__getitem__(index2 - 1).cumulativeDelay
+                    tempScheduledOperationFinishTime = SO.cumulativeDelay
+                    if(tempOperation.cumulativeDelay<=0):
+                        print("More Instructions need to be put here")
+                    gap = SO.cumulativeDelay - tempOperations.__getitem__(index - 1).cumulativeDelay
                     if (gap > startTime):
                         startTime = gap
                     break
+
+                index2 = index2 + 2
             index = index + 2
 
 def computeCollisionPerFlow(G, scheduledFlows, deletedFlows, listofCollisions, typeOfSchedulingAlgorithm):         #this function computes collisions and fill the collisions list after the attack type 2 and 3 (remove attack)
