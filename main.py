@@ -1170,6 +1170,9 @@ def computeCollisionPerFlowSWOTS_WS(G, scheduledFlows, deletedFlows, listofColli
     CollisionCounterPerFlow = 0             #Count the number of distinct collision per flow. In other words,  if the deleted flow collided with another flow in 3 egress ports, it will be count as 3
     ListOfCollidedTSNFlows = []             #A list of all collided flows with the current flow; a single flow will exist in this list multiple times, if it collided with the current flow in multiple egress ports
     ListOfCollidedLocations = []            #A list of all collision location. Each item in this list corresponds to an item in the list 'ListOfCollidedTSNFlows'
+    listOfWaitingTimes = []                 # A list of waiting times per collision locations. Each item in this list corresponds to an item in the list 'ListOfCollidedTSNFlows' and the list 'ListOfCollidedLocations'
+                                            #   We assumed that (regardless of the arrival time and finish time of both flows) the current flow will be postponed to start after the other flow
+
 
 
 def computeCollisionPerFlowSWOTS(G, scheduledFlows, deletedFlows, listofCollisions, tempDeletedItem):
