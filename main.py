@@ -1051,6 +1051,15 @@ def convertOperationIDtoEdge(operationID):
     result = "({},{})".format(incomeSwitch, outcomeSwitch)
     return result
 
+def convertEdgetoOperationID(tempEdge):
+    tempArray = tempEdge.split(",")
+    firstArray = list(tempArray.__getitem__(0))
+    secondArray = list(tempArray.__getitem__(1))
+    incomeSwitch = firstArray.__getitem__(1)
+    outcomeSwitch = secondArray.__getitem__(0)
+    result = "{},{}trans".format(incomeSwitch, outcomeSwitch)
+    return result
+
 def computeNumberOfCollisionPerRun(listofCollisions):
     theResultList =[]      #this list contains the list of distinct collision in the form of (firstCollidedTSNFlow, secondCollidedTSNFlow, listOfCollisionLocations). Eg. (TSNFLOW1, TSNFLOW2, ["(1,2)","(5,6)"]
     listOfComputedCollidedTSNFlows = []
@@ -1157,7 +1166,8 @@ def computeCollisionPerFlowSWOTS(G, scheduledFlows, deletedFlows, listofCollisio
     CollisionCounterPerFlow = 0             #Count the number of distinct collision per flow. In other words,  if the deleted flow collided with another flow in 3 egress ports, it will be count as 3
     ListOfCollidedTSNFlows = []             #A list of all collided flows with the current flow; a single flow will exist in this list multiple times, if it collided with the current flow in multiple egress ports
     ListOfCollidedLocations = []            #A list of all collision location. Each item in this list corresponds to an item in the list 'ListOfCollidedTSNFlows'
-
+    listOfWaitingTimes = []                 #A list of waiting times per collision locations. Each item in this list corresponds to an item in the list 'ListOfCollidedTSNFlows' and the list 'ListOfCollidedLocations'
+                                            #   We assumed that (regardless of the arrival time and finish time of both flows) the current flow will be postponed to start after the other flow
 
     tempOperations = map(G, tempDeletedTSNFlow, tempDeletedStartTime)
     index = 2
@@ -1173,15 +1183,52 @@ def computeCollisionPerFlowSWOTS(G, scheduledFlows, deletedFlows, listofCollisio
                     tempDeletedOperationFinishTime = tempOperation.cumulativeDelay
                     tempScheduledOperationArrivalTime = SFO.__getitem__(index2 - 1).cumulativeDelay
                     tempScheduledOperationFinishTime = SO.cumulativeDelay
-                    if(tempOperation.cumulativeDelay<=0):
-                        print("More Instructions need to be put here")
-                    gap = SO.cumulativeDelay - tempOperations.__getitem__(index - 1).cumulativeDelay
-                    if (gap > startTime):
-                        startTime = gap
-                    break
+                    if(((tempDeletedOperationFinishTime >= tempScheduledOperationFinishTime) and (tempDeletedOperationArrivalTime<= tempScheduledOperationFinishTime)) or
+                            ((tempDeletedOperationFinishTime >= tempScheduledOperationArrivalTime) and (tempDeletedOperationArrivalTime <= tempScheduledOperationArrivalTime))):
+                        CollisionCounterPerFlow = CollisionCounterPerFlow + 1
+                        ListOfCollidedTSNFlows.append(SF)
+                        ListOfCollidedLocations.append(convertOperationIDtoEdge(SO.id))
+                        waitingTime = tempScheduledOperationFinishTime - tempDeletedOperationArrivalTime
+                        listOfWaitingTimes.append(waitingTime)
 
+                    break
                 index2 = index2 + 2
-            index = index + 2
+
+        for deletedItem in deletedFlows:
+            DF = deletedItem.__getitem__(0)
+            DST = deletedItem.__getitem__(1)
+            DFO = map(G, DF, DST)
+            index2 = 2
+            for DO in DFO[2::2]:
+                if (DO.id == operation.id):
+                    tempDeletedOperationArrivalTime = tempOperations.__getitem__(index - 1).cumulativeDelay
+                    tempDeletedOperationFinishTime = tempOperation.cumulativeDelay
+                    deletedOperationArrivalTime = DFO.__getitem__(index2 - 1).cumulativeDelay
+                    deletedOperationFinishTime = DO.cumulativeDelay
+                    if(((tempDeletedOperationFinishTime >= deletedOperationFinishTime) and (tempDeletedOperationArrivalTime<= deletedOperationFinishTime)) or
+                            ((tempDeletedOperationFinishTime >= deletedOperationArrivalTime) and (tempDeletedOperationArrivalTime <= deletedOperationArrivalTime))):
+                        CollisionCounterPerFlow = CollisionCounterPerFlow + 1
+                        ListOfCollidedTSNFlows.append(DF)
+                        ListOfCollidedLocations.append(convertOperationIDtoEdge(DO.id))
+                        waitingTime = deletedOperationFinishTime - tempDeletedOperationArrivalTime
+                        listOfWaitingTimes.append(waitingTime)
+
+                    break
+                index2 = index2 + 2
+
+
+        index = index + 2
+
+    tempDistictedFlowsList = []
+    for TSNFlow in ListOfCollidedTSNFlows:
+        if TSNFlow.id not in tempDistictedFlowsList:
+            distinctCollisionCounterPerFlow = distinctCollisionCounterPerFlow + 1
+            tempDistictedFlowsList.append(TSNFlow.id)
+
+    if (distinctCollisionCounterPerFlow > 0):
+        listofCollisions.append((tempDeletedTSNFlow, distinctCollisionCounterPerFlow, CollisionCounterPerFlow,
+                                 ListOfCollidedTSNFlows, ListOfCollidedLocations,listOfWaitingTimes))
+
 
 def computeCollisionPerFlow(G, scheduledFlows, deletedFlows, listofCollisions, typeOfSchedulingAlgorithm):         #this function computes collisions and fill the collisions list after the attack type 2 and 3 (remove attack)
 
