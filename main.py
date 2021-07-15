@@ -871,7 +871,7 @@ def displayListOfCollisions(listofCollisions):
                                                                                                  listItem.__getitem__(1),
                                                                                                  listItem.__getitem__(2)))
         for index in range(len(collidedTSNFlows)):
-            print("({}) It collides with TSN Flow number {} at egress port {}".format(index, collidedTSNFlows.__getitem__(
+            print("({}) It collides with TSN Flow number {} at egress port {}".format(index+1, collidedTSNFlows.__getitem__(
                 index).id, collisionsLocations.__getitem__(index)))
         print("----------------------------")
 
@@ -1040,6 +1040,7 @@ def convertPathToAlistOfEdges(G,path):
             tempListOfEdges.append(tempLink)
     return tempListOfEdges
 
+
 def convertOperationIDtoEdge(operationID):
     # convert the operation ID from "7,6proc" to "(7,6)", which is similar to edge name format in scheduling SWTS
     firstString = operationID
@@ -1047,16 +1048,29 @@ def convertOperationIDtoEdge(operationID):
     incomeSwitch = firstArray.__getitem__(0)
     secondString = firstArray.__getitem__(1)
     secondArray = list(secondString)
-    outcomeSwitch = secondArray.__getitem__(0)
+    outcomeSwitch = ""
+    tempOutcomeSwitch = ""
+    for i in range(len(secondArray)):
+        tempOutcomeSwitch = tempOutcomeSwitch + secondArray.__getitem__(i)
+        if (tempOutcomeSwitch.isnumeric() == False):
+            break
+        outcomeSwitch = tempOutcomeSwitch
     result = "({},{})".format(incomeSwitch, outcomeSwitch)
     return result
 
 def convertEdgetoOperationID(tempEdge):
+    # convert the edge to operation ID from "(7,6)" to "7,6proc", which is the opposite of the 'convertOperationIDtoEdge'
     tempArray = tempEdge.split(",")
     firstArray = list(tempArray.__getitem__(0))
     secondArray = list(tempArray.__getitem__(1))
-    incomeSwitch = firstArray.__getitem__(1)
-    outcomeSwitch = secondArray.__getitem__(0)
+
+    incomeSwitch = ""
+    for i in range(1, len(firstArray)):
+        incomeSwitch = incomeSwitch + firstArray.__getitem__(i)
+
+    outcomeSwitch = ""
+    for i in range(len(secondArray) - 1):
+        outcomeSwitch = outcomeSwitch + secondArray.__getitem__(i)
     result = "{},{}trans".format(incomeSwitch, outcomeSwitch)
     return result
 
@@ -1107,7 +1121,7 @@ def computeCollisionPerFlowSWTS(G, scheduledFlows, deletedFlows, listofCollision
     for scheduledItem in scheduledFlows:
         tempScheduledTSNFlow = scheduledItem.__getitem__(0)
         tempScheduledTimeSlot = scheduledItem.__getitem__(1)
-        if(tempDeletedTimeSlot != tempScheduledTimeSlot):
+        if((tempDeletedTimeSlot != tempScheduledTimeSlot) or (tempScheduledTSNFlow.id == tempDeletedTSNFlow.id)):
             continue
         else:
             deletedPathEdges = convertPathToAlistOfEdges(G,tempDeletedTSNFlow.path)
@@ -1174,11 +1188,13 @@ def computeCollisionPerFlowSWOTS(G, scheduledFlows, deletedFlows, listofCollisio
     for tempOperation in tempOperations[2::2]:
         for scheduledItem in scheduledFlows:
             SF = scheduledItem.__getitem__(0)
+            if (SF.id == tempDeletedTSNFlow.id):
+                continue
             SST = scheduledItem.__getitem__(1)
             SFO = map(G, SF, SST)
             index2 = 2
             for SO in SFO[2::2]:
-                if (SO.id == operation.id):
+                if (SO.id == tempOperation.id):
                     tempDeletedOperationArrivalTime = tempOperations.__getitem__(index - 1).cumulativeDelay
                     tempDeletedOperationFinishTime = tempOperation.cumulativeDelay
                     tempScheduledOperationArrivalTime = SFO.__getitem__(index2 - 1).cumulativeDelay
@@ -1196,11 +1212,13 @@ def computeCollisionPerFlowSWOTS(G, scheduledFlows, deletedFlows, listofCollisio
 
         for deletedItem in deletedFlows:
             DF = deletedItem.__getitem__(0)
+            if(DF.id == tempDeletedTSNFlow.id):
+                continue
             DST = deletedItem.__getitem__(1)
             DFO = map(G, DF, DST)
             index2 = 2
             for DO in DFO[2::2]:
-                if (DO.id == operation.id):
+                if (DO.id == tempOperation.id):
                     tempDeletedOperationArrivalTime = tempOperations.__getitem__(index - 1).cumulativeDelay
                     tempDeletedOperationFinishTime = tempOperation.cumulativeDelay
                     deletedOperationArrivalTime = DFO.__getitem__(index2 - 1).cumulativeDelay
@@ -1239,6 +1257,14 @@ def computeCollisionPerFlow(G, scheduledFlows, deletedFlows, listofCollisions, t
             computeCollisionPerFlowSWOTS_WS(G, scheduledFlows, deletedFlows, listofCollisions, tempDeletedItem)
         else:                                       # deletedItem in the form of (TSN flow, startTime)
             computeCollisionPerFlowSWOTS(G, scheduledFlows, deletedFlows, listofCollisions, tempDeletedItem)
+
+    for tempScheduledItem in scheduledFlows:
+        if(typeOfSchedulingAlgorithm == 0):         # deletedItem in the form of (TSN flow, NextSlot id)
+            computeCollisionPerFlowSWTS(G, scheduledFlows, deletedFlows, listofCollisions, tempScheduledItem)
+        elif(typeOfSchedulingAlgorithm % 2 == 0):   # deletedItem in the form of (TSN flow, startTime, QueuingDelays list)
+            computeCollisionPerFlowSWOTS_WS(G, scheduledFlows, deletedFlows, listofCollisions, tempScheduledItem)
+        else:                                       # deletedItem in the form of (TSN flow, startTime)
+            computeCollisionPerFlowSWOTS(G, scheduledFlows, deletedFlows, listofCollisions, tempScheduledItem)
 
 
 
@@ -1671,6 +1697,22 @@ def deleteAttack(G, hostsList , firstKthPaths, timeSlotsAmount, nbOfTSNFlows, pF
     print("--------------------------------------------------")
     print()
     displayCollisionList(collisionList, collisionPerEgressPortCounter)
+    print()
+    print()
+    print()
+    print()
+    print("....: list of scheduled flows :.....")
+    for scheduledItem in scheduledFlows:
+        print("The path for flow number {} is: {}".format(scheduledItem.__getitem__(0).id,display(scheduledItem.__getitem__(0).path)))
+    print()
+    print()
+    print("============================================")
+    print()
+    print("....: list of deleted flows :....")
+    print()
+    for deletedItem in deletedScheduledFlows:
+        print("The path for flow number {} is: {}".format(deletedItem.__getitem__(0).id,
+                                                              display(deletedItem.__getitem__(0).path)))
 
 
 
