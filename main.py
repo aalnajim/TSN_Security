@@ -1107,7 +1107,14 @@ def computeNumberOfCollisionPerRun(listofCollisions):
     return theResultList,distinctCollisionPerEgressPortCounter
 
 
-
+def findNBofCollisions(TSNFlow, listofCollisions):
+    #This function take a TSN flow as an input and return:
+    # (1) the number of distinct collisions (the number of collided TSN flows)
+    # (2) the total number of its collisions (if it collided with another TSN flow in two different locations it will count as 2)
+    for listedItem in listofCollisions:
+        if(TSNFlow == listedItem.__getitem__(0)):
+            return listedItem.__getitem__(1), listedItem.__getitem__(2)
+    return 0, 0
 
 
 
@@ -1352,6 +1359,159 @@ def computeCollisionPerFlow(G, scheduledFlows, deletedFlows, listofCollisions, t
             computeCollisionPerFlowSWOTS(G, scheduledFlows, deletedFlows, listofCollisions, tempScheduledItem)
 
 
+def dropTSNFlowFromCollisionLists(TSNFlow, listofCollisions, collisionList, collisionPerEgressPortCounter):
+    newCollisionPerEgressPortCounter = collisionPerEgressPortCounter
+    listOfIndeces = []
+    index = 0
+    for listItem in listofCollisions:
+        if(listItem.__getitem__(0) == TSNFlow):
+            listOfIndeces.append(index)
+        if(TSNFlow in listItem.__getitem__(3)):
+            distinctCounter = listItem.__getitem__(1) - 1
+            if(distinctCounter == 0):
+                listOfIndeces.append(index)
+                index = index + 1
+                continue
+            innerListOfIndeces = []
+            totalCounter = listItem.__getitem__(2)
+            for i in range(len(listItem.__getitem__(3))):
+                if(TSNFlow == (listItem.__getitem__(3)).__getitem__(i)):
+                    innerListOfIndeces.append(i)
+                    totalCounter = totalCounter - 1
+
+            tempTSNFlow = listItem.__getitem__(0)
+            tempTSNFlows = listItem.__getitem__(3)
+            tempLocations = listItem.__getitem__(4)
+            if len(listItem)>5:
+                tempDelays = listItem.__getitem__(5)
+                listofCollisions[index] = (tempTSNFlow,distinctCounter,totalCounter,
+                                           tempTSNFlows,tempLocations,tempDelays)
+            else:
+                listofCollisions[index] = (tempTSNFlow, distinctCounter, totalCounter,
+                                           tempTSNFlows, tempLocations)
+
+
+            for i in range(len(innerListOfIndeces)):
+                del (listItem.__getitem__(3))[innerListOfIndeces.__getitem__(i) - i]
+                del (listItem.__getitem__(4))[innerListOfIndeces.__getitem__(i) - i]
+                if (len(listofCollisions.__getitem__(index)) > 5):
+                    del (listItem.__getitem__(5))[innerListOfIndeces.__getitem__(i) - i]
+        index = index + 1
+    for i in range(len(listOfIndeces)):
+        del listofCollisions[listOfIndeces.__getitem__(i)-i]
+
+
+    listOfIndeces = []
+    index = 0
+    for listItem in collisionList:
+        if((listItem.__getitem__(0) == TSNFlow) or (listItem.__getitem__(1) == TSNFlow)):
+            newCollisionPerEgressPortCounter = newCollisionPerEgressPortCounter - len(listItem.__getitem__(2))
+            listOfIndeces.append(index)
+        index = index + 1
+    for i in range(len(listOfIndeces)):
+        del collisionList[listOfIndeces.__getitem__(i) - i]
+
+
+    return newCollisionPerEgressPortCounter
+
+
+
+
+def dropBasedOnTheHighestNBOfCollisions(listofCollisions, collisionList):
+    pass
+
+
+def dropBasedOnTheSoonestDeadline(listofCollisions, collisionList):
+    pass
+
+
+def dropBasedOnTheShortestDelay(listofCollisions, collisionList):
+    pass
+
+
+def dropBasedOnTheEarliestArrivalTime(listofCollisions, collisionList):
+    pass
+
+
+def collisionResolveByDropping(listofCollisions, collisionList, selectAlgorithm):
+    if(selectAlgorithm == 0):
+        dropBasedOnTheHighestNBOfCollisions(listofCollisions, collisionList)
+    elif(selectAlgorithm == 1):
+        dropBasedOnTheSoonestDeadline(listofCollisions, collisionList)
+    elif(selectAlgorithm == 2):
+        dropBasedOnTheShortestDelay(listofCollisions, collisionList)
+    else:
+        dropBasedOnTheEarliestArrivalTime(listofCollisions, collisionList)
+
+
+def collisionResolveByDelaying(listofCollisions, collisionList, selectAlgorithm):
+    pass
+
+
+def collisionResolve(listofCollisions, collisionList, resolveMethod, selectAlgorithm):
+    # This function takes:
+    # (1-2) The two list of collisions
+    # (3)   The resolve method (0 for drop, 1 for delay)
+    # (4)   The select algorithm (0 for the highest number of distinct collisions
+    #                             1 for the soonest deadline
+    #                             2 for the shortest resulted delay between the two collided flows
+    #                             3 for the normal (earliest arrival time)
+    # Then, it updates the list accordingly
+    if (resolveMethod == 0):
+        collisionResolveByDropping(listofCollisions, collisionList, selectAlgorithm)
+    else:
+        collisionResolveByDelaying(listofCollisions, collisionList, selectAlgorithm)
+
+
+def copyCollisionlists(listofCollisions, collisionList):
+    copyOfListofCollisions = []
+    copyOfCollisionList = []
+
+    for listElement in listofCollisions:
+        tempTSNFlow = listElement.__getitem__(0)
+        tempDisCounter = listElement.__getitem__(1)
+        tempCounter = listElement.__getitem__(2)
+        tempTSNFlows = listElement.__getitem__(3)
+        tempCollidedLocations = listElement.__getitem__(4)
+
+        copyOfTSNFlows = []
+        copyOfCollidedLocations = []
+        if(len(listElement)>5):
+            tempDelays = listElement.__getitem__(5)
+            copyOfDelays = []
+        for i in range(len(tempTSNFlows)):
+            copyOfTSNFlows.append(tempTSNFlows.__getitem__(i))
+            copyOfCollidedLocations.append(tempCollidedLocations.__getitem__(i))
+            if (len(listElement) > 5):
+                copyOfDelays.append(tempDelays.__getitem__(i))
+        if (len(listElement) > 5):
+            copyOfListofCollisions.append((tempTSNFlow,tempDisCounter,tempCounter,copyOfTSNFlows,copyOfCollidedLocations,copyOfDelays))
+        else:
+            copyOfListofCollisions.append(
+                    (tempTSNFlow, tempDisCounter, tempCounter, copyOfTSNFlows, copyOfCollidedLocations))
+
+    for listElement in collisionList:
+        tempFirstTSNFlow = listElement.__getitem__(0)
+        tempSecondTSNFlow = listElement.__getitem__(1)
+        tempCollidedLocations = listElement.__getitem__(2)
+        copyOfCollidedLocations = []
+        if(len(listElement)> 3):
+            tempDelays = listElement.__getitem__(3)
+            copyOfDelays = []
+        for i in range(len(tempCollidedLocations)):
+            copyOfCollidedLocations.append(tempCollidedLocations.__getitem__(i))
+            if (len(listElement) > 3):
+                copyOfDelays.append(tempDelays.__getitem__(i))
+
+        if (len(listElement) > 3):
+            copyOfCollisionList.append((tempFirstTSNFlow,tempSecondTSNFlow,copyOfCollidedLocations,copyOfDelays))
+        else:
+            copyOfCollisionList.append((tempFirstTSNFlow,tempSecondTSNFlow,copyOfCollidedLocations))
+
+    return copyOfListofCollisions, copyOfCollisionList
+
+
+
 
 
 
@@ -1575,9 +1735,6 @@ def insertAttack(G, hostsList , firstKthPaths, timeSlotsAmount, nbOfTSNFlows, pF
 
 
 
-
-
-
 def deleteAttack(G, hostsList , firstKthPaths, timeSlotsAmount, nbOfTSNFlows, pFlow, TSNCountWeight, bandwidthWeight, hopCountWeight,
                  typeOfSecurityAttack, attackRate, attackStartTime, typeofSchedulingAlgorithm):
     CLength = 0  # the schedule cycle length
@@ -1768,6 +1925,11 @@ def deleteAttack(G, hostsList , firstKthPaths, timeSlotsAmount, nbOfTSNFlows, pF
         print('nb of the total scheduled flows using SWOTS_AEAP_WS: {}'.format(totalscheduledCounter))
     print("the total flows that cannot be seen by the scheduler: {}".format(totalscheduledCounter-scheduledCounter))
 
+    listofCollisionsCopy, collisionListCopy = copyCollisionlists(listofCollisions, collisionList)
+
+    temptestFlow = listofCollisionsCopy.__getitem__(0).__getitem__(0)
+    newCollisionPerEgressPortCounter = dropTSNFlowFromCollisionLists(temptestFlow, listofCollisionsCopy, collisionListCopy, collisionPerEgressPortCounter)
+
     print()
     print()
     print("--------------------------------------------------")
@@ -1784,6 +1946,38 @@ def deleteAttack(G, hostsList , firstKthPaths, timeSlotsAmount, nbOfTSNFlows, pF
     displayCollisionList(collisionList, collisionPerEgressPortCounter)
     print()
     print()
+
+    print()
+    print()
+    print("--------------------------------------------------")
+    print("|    Collision Summary For Each Collided Flow 2   |")
+    print("--------------------------------------------------")
+    print()
+    displayListOfCollisions(listofCollisionsCopy)
+    print()
+    print()
+    print("--------------------------------------------------")
+    print("|         Collision Summary For Each Run 2       |")
+    print("--------------------------------------------------")
+    print()
+    displayCollisionList(collisionListCopy, newCollisionPerEgressPortCounter)
+    print()
+    print()
+
+
+
+
+
+
+
+
+    # listofCollisionsCopy, collisionListCopy = copyCollisionlists(listofCollisions, collisionList)
+    #
+    # collisionResolve(listofCollisionsCopy, collisionListCopy,0,0)
+
+
+
+
     print()
     print()
     print("....: list of scheduled flows :.....")
@@ -1998,7 +2192,7 @@ def main():
                                         #                             1   = at the end
                                         #                             0.5 = after trying to schedule 50% of TSN flows
 
-    typeofSchedulingAlgorithm = 2       # The used scheduling algorithm (0 = SWTS
+    typeofSchedulingAlgorithm = 0       # The used scheduling algorithm (0 = SWTS
                                         #                                1 = SWOTS_ASAP
                                         #                                2 = SWOTS_ASAP_WS
                                         #                                3 = SWOTS_AEAP
