@@ -14,6 +14,7 @@ from timeit import default_timer as timer
 from itertools import islice
 from TSNHost import TSNHost
 import sys
+from itertools import combinations
 from myThread import myThread
 from myThread2 import myThread2
 #import queue
@@ -889,6 +890,45 @@ def displayCollisionList(collisionList, collisionPerEgressPortCounter):
                                                                                                          secondCollidedFlow.id,
                                                                                                          collisionsLocations))
 
+def displayFlowStatistics(firstTSNFlow,secondTSNFlow, collisionLocation, listofCollisions):
+    nbOfCollisions, nbOfCollidedFlows, nbOfCollisionsWithTheSecondTSNFlow, nbOfDistinctCollidedLocations, nbOfCollisionsInTheLocation = \
+        calculateCollisionsStatisticsForAFlow(firstTSNFlow,secondTSNFlow, collisionLocation, listofCollisions)
+    print("The statistics of flow {}:\n (1) Total NB of Collisions is: ({})\n (2) NB of collided flows is: ({})"
+          "\n (3) NB of Collisions with flow number {} is: ({})\n (4) NB of distinct collided locations is: ({})"
+          "\n (5) NB of Collisions in {} is: ({})".format(firstTSNFlow.id,nbOfCollisions, nbOfCollidedFlows, secondTSNFlow.id,nbOfCollisionsWithTheSecondTSNFlow,
+                                                          nbOfDistinctCollidedLocations, collisionLocation, nbOfCollisionsInTheLocation ))
+
+def displaySummaryAfterResolvingCollisionUsingDrop(scheduledFlows, deletedScheduledFlows, listOfDropedFlows,theUsedAlgorithm):
+    print()
+    print()
+    print("--------------------------------------------------")
+    print("|                Overall Summary                 |")
+    print("--------------------------------------------------")
+    print()
+    print()
+    print("# The network promised to support {} TSN flows\n# {} of them are hidden from the scheduler due to the blindness attack\n# {} of them are in the schedule and can be seen by the controller\n# By resolving collisions using drop mechanism based on {} algorithm:\n"
+          "     * the network was able to deliver {} flows out of {} promised flows\n     * It fails to deliver (drops) {} out of {} promised flows"
+          .format(len(scheduledFlows)+len(deletedScheduledFlows),len(deletedScheduledFlows),len(scheduledFlows),theUsedAlgorithm,len(scheduledFlows)+len(deletedScheduledFlows)-len(listOfDropedFlows),len(scheduledFlows)+len(deletedScheduledFlows),len(listOfDropedFlows),len(scheduledFlows)+len(deletedScheduledFlows)))
+
+    droppedCounter = 0
+    deliveredCounter = 0
+    deliveredList =[]
+    for scheduledFlow in scheduledFlows:
+        tempTSNFLow = scheduledFlow.__getitem__(0)
+        if(tempTSNFLow in listOfDropedFlows):
+            droppedCounter = droppedCounter + 1
+        else:
+            deliveredCounter = deliveredCounter + 1
+            deliveredList.append(tempTSNFLow)
+    for deletedFlow in deletedScheduledFlows:
+        tempTSNFLow = deletedFlow.__getitem__(0)
+        if(tempTSNFLow in listOfDropedFlows):
+            droppedCounter = droppedCounter + 1
+        else:
+            deliveredCounter = deliveredCounter + 1
+            deliveredList.append(tempTSNFLow)
+    return deliveredList, deliveredCounter, droppedCounter
+
 def findFlowArrivalTime(flow, flowsList):
     arrivalTime = -1
     for index in range(len(flowsList)):
@@ -1073,6 +1113,50 @@ def convertEdgetoOperationID(tempEdge):
         outcomeSwitch = outcomeSwitch + secondArray.__getitem__(i)
     result = "{},{}trans".format(incomeSwitch, outcomeSwitch)
     return result
+
+def computeListOfCollisionsperFlowByEgressPort(collisionList,collisionLocation):
+    # This method takes two parameters:
+    # (1) The list 'collisionList', which has all distinct collisions in the form of (firstTSNFlow, firstTSNFlow, collisionLocations)
+    # (2) The collisionLocation in the form of string as follow "(2,3)"
+    #Then, it returns the list 'result', which has all the collisions in that location in the form of (firstTSNFlow, listOfCollidedTSNFlows)
+
+    result = []             # A list of all collisions in 'collisionLocation' in the form of (firstTSNFlow, listOfCollidedTSNFlows)
+    reigsteredTSNFlows = []
+    for listItem in collisionList:
+        if(collisionLocation in listItem.__getitem__(2)):
+            if(listItem.__getitem__(0) in reigsteredTSNFlows):
+                theFirstFlowIndex = reigsteredTSNFlows.index(listItem.__getitem__(0))
+                ((result.__getitem__(theFirstFlowIndex)).__getitem__(1)).append(listItem.__getitem__(1))
+            else:
+                result.append((listItem.__getitem__(0),[listItem.__getitem__(1)]))
+                reigsteredTSNFlows.append(listItem.__getitem__(0))
+            if(listItem.__getitem__(1) in reigsteredTSNFlows):
+                theSecondFlowIndex = reigsteredTSNFlows.index(listItem.__getitem__(1))
+                ((result.__getitem__(theSecondFlowIndex)).__getitem__(1)).append(listItem.__getitem__(0))
+            else:
+                result.append((listItem.__getitem__(1), [listItem.__getitem__(0)]))
+                reigsteredTSNFlows.append(listItem.__getitem__(1))
+
+    return result
+
+def computeListOfCollisionsForAFlowInEgressPort(collisionList,collisionLocation,TSNFlow):
+    # This method takes three parameters:
+    # (1) The list 'collisionList', which has all distinct collisions in the form of (firstTSNFlow, firstTSNFlow, collisionLocations)
+    # (2) The collisionLocation in the form of string as follow "(2,3)"
+    # (3) The targeted 'TSNFlow'
+    #Then, it returns the list 'result', which has all TSN Flows collided with 'TSNFlow' in 'collisionLocation' in the form of 'listOfCollidedTSNFlows'
+
+    result = []
+    tempList = computeListOfCollisionsperFlowByEgressPort(collisionList,collisionLocation)
+    for listItem in tempList:
+        if (listItem.__getitem__(0)== TSNFlow):
+            result = listItem.__getitem__(1)
+            break
+
+
+    return result
+
+
 
 def computeNumberOfCollisionPerRun(listofCollisions):
     theResultList =[]      #this list contains the list of distinct collision in the form of (firstCollidedTSNFlow, secondCollidedTSNFlow, listOfCollisionLocations). Eg. (TSNFLOW1, TSNFLOW2, ["(1,2)","(5,6)"]
@@ -1415,10 +1499,207 @@ def dropTSNFlowFromCollisionLists(TSNFlow, listofCollisions, collisionList, coll
     return newCollisionPerEgressPortCounter
 
 
+def calculateCollisionsStatisticsForAFlow(firstTSNFlow,secondTSNFlow, collisionLocation, listofCollisions):
+    nbOfCollisions, nbOfCollidedFlows, nbOfCollisionsWithTheSecondTSNFlow, nbOfDistinctCollidedLocations, nbOfCollisionsInTheLocation = 0, 0, 0, 0, 0
+    for deletedItem in listofCollisions:
+        if deletedItem.__getitem__(0) == firstTSNFlow:
+            nbOfCollisions = deletedItem.__getitem__(2)
+            nbOfCollidedFlows = deletedItem.__getitem__(1)
+            visitedLocations = []
+            for index in range(len(deletedItem.__getitem__(4))):
+                if ((deletedItem.__getitem__(3)).__getitem__(index) == secondTSNFlow):
+                    nbOfCollisionsWithTheSecondTSNFlow = nbOfCollisionsWithTheSecondTSNFlow + 1
+                if ((deletedItem.__getitem__(4)).__getitem__(index) not in visitedLocations):
+                    visitedLocations.append((deletedItem.__getitem__(4)).__getitem__(index))
+                    nbOfDistinctCollidedLocations = nbOfDistinctCollidedLocations + 1
+                if((deletedItem.__getitem__(4)).__getitem__(index) == collisionLocation):
+                    nbOfCollisionsInTheLocation = nbOfCollisionsInTheLocation + 1
+
+            break
+    return nbOfCollisions, nbOfCollidedFlows, nbOfCollisionsWithTheSecondTSNFlow, nbOfDistinctCollidedLocations, nbOfCollisionsInTheLocation
 
 
-def dropBasedOnTheHighestNBOfCollisions(listofCollisions, collisionList):
-    pass
+def orderCollidedFlowsBasedOnNBOfCollisions(TSNFlow, collisionLocation, collisionList, listofCollisions,listOfOrderKeys):
+
+    # Check the correctness of 'listOfOrderKeys'
+    ############################################
+    a, b, c, d = listOfOrderKeys
+    while not (all(v in [0, 1, 2, 3] for v in [a, b, c, d]) and all(x != y for x, y in combinations([a, b, c, d], 2))):
+        error_message = "You have to enter the orderkeys as four numbers separated by commas, in this form: a,b,c,d\n*These numbers have to be distinct numbers between 0 and 3 (no two numbers have the same value, where:\n    0 --> nbOfCollisions (total number of collisions)\n    1 --> nbOfCollidedFlows (number of collided flows)\n    2 --> nbOfDistinctCollidedLocations (how many different locations a flow will have a collision at)\n    3 --> nbOfCollisionsInTheLocation (how many collisions a flow will have in the current location)\nThe new values are:"
+        orderKeys = input(error_message)
+        orderKeysWithoutSpace = orderKeys.replace(" ", "")
+        orderKeysList = orderKeysWithoutSpace.split(",")
+        try:
+            if (len(orderKeysList) > 4):
+                raise ValueError('The user entered more than 4 values!')
+            integerOrderKeysList = map(int, orderKeysList)
+            a, b, c, d = integerOrderKeysList
+        except:
+            continue
+    ############################################
+
+    listOfCollidedPairs = []      # This list contains a pair of collided flows from 'collidedFlowList' in addition to 'TSNFlow'
+                                  # So, if 'TSNFlow' has 3 flows that collided with it at 'collisionLocation', which are 'collidedFlowList' = [TSNFlow2,TSNFlow3,TSNFlow4]
+                                  # This list 'listOfCollidedPairs' will be in the form: [(TSNFlow,TSNFlow2,nbOfCollisionsBetweenThem,True),(TSNFlow,TSNFlow2,nbOfCol,True),(TSNFlow,TSNFlow3,nbOfCol,True),(TSNFlow2,TSNFlow3,nbOfColl,True),(TSNFlow2,TSNFlow4,nbOfColl,True),(TSNFlow3,TSNFlow4,nbOfColl,False)]
+
+    listOfStatisticsPerFlows = [] # This list contains the following statistics:
+                                  # (1) nbOfCollisions, (2) nbOfCollidedFlows, (3) nbOfDistinctCollidedLocations, (4) nbOfCollisionsInTheLocation
+                                  # for each collided flow that collide with 'TSNFlow' in 'collisionLocation' including 'TSNFlow'
+                                  # in the form of [(TSNFlow Object,nbOfCollisions,nbOfCollidedFlows,nbOfDistinctCollidedLocations,nbOfCollisionsInTheLocation), (AnotherTSNFLow, ... ,..., ..., ...), .......]
+
+    collidedFlowList = computeListOfCollisionsForAFlowInEgressPort(collisionList, collisionLocation, TSNFlow)
+    if(len(collidedFlowList)==0):
+        return listOfStatisticsPerFlows, listOfCollidedPairs
+    nbOfCollisions, nbOfCollidedFlows, nbOfCollisionsWithTheSecondTSNFlow, nbOfDistinctCollidedLocations, nbOfCollisionsInTheLocation = calculateCollisionsStatisticsForAFlow(TSNFlow,collidedFlowList.__getitem__(0),collisionLocation,listofCollisions)
+    listOfStatisticsPerFlows.append((TSNFlow,nbOfCollisions,nbOfCollidedFlows,nbOfDistinctCollidedLocations,nbOfCollisionsInTheLocation))
+    listOfCollidedPairs.append((TSNFlow,collidedFlowList.__getitem__(0),nbOfCollisionsWithTheSecondTSNFlow,True))
+
+    for index in range(1,len(collidedFlowList)):
+        nbOfCollisions, nbOfCollidedFlows, nbOfCollisionsWithTheSecondTSNFlow, nbOfDistinctCollidedLocations, nbOfCollisionsInTheLocation = calculateCollisionsStatisticsForAFlow(TSNFlow,collidedFlowList.__getitem__(index),collisionLocation,listofCollisions)
+        listOfCollidedPairs.append((TSNFlow, collidedFlowList.__getitem__(index), nbOfCollisionsWithTheSecondTSNFlow,True))
+
+    for index1 in range(0,len(collidedFlowList)):
+        if (index1 + 1) == len(collidedFlowList):
+            nbOfCollisions, nbOfCollidedFlows, nbOfCollisionsWithTheSecondTSNFlow, nbOfDistinctCollidedLocations, nbOfCollisionsInTheLocation = calculateCollisionsStatisticsForAFlow(collidedFlowList.__getitem__(index1), collidedFlowList.__getitem__(index1 -1), collisionLocation,listofCollisions)
+            listOfStatisticsPerFlows.append((collidedFlowList.__getitem__(index1), nbOfCollisions, nbOfCollidedFlows,
+                                            nbOfDistinctCollidedLocations,
+                                            nbOfCollisionsInTheLocation))
+        else:
+            tempCollidedFlows = computeListOfCollisionsForAFlowInEgressPort(collisionList,collisionLocation,collidedFlowList.__getitem__(index1))
+            nbOfCollisions, nbOfCollidedFlows, nbOfCollisionsWithTheSecondTSNFlow, nbOfDistinctCollidedLocations, nbOfCollisionsInTheLocation = calculateCollisionsStatisticsForAFlow(
+                collidedFlowList.__getitem__(index1), collidedFlowList.__getitem__(index1+1), collisionLocation, listofCollisions)
+            listOfStatisticsPerFlows.append((collidedFlowList.__getitem__(index1), nbOfCollisions, nbOfCollidedFlows, nbOfDistinctCollidedLocations,
+                                            nbOfCollisionsInTheLocation))
+            if(collidedFlowList.__getitem__(index1+1) in tempCollidedFlows):
+                listOfCollidedPairs.append((collidedFlowList.__getitem__(index1), collidedFlowList.__getitem__(index1+1), nbOfCollisionsWithTheSecondTSNFlow,True))
+            else:
+                listOfCollidedPairs.append((collidedFlowList.__getitem__(index1),
+                                            collidedFlowList.__getitem__(index1 + 1),
+                                            nbOfCollisionsWithTheSecondTSNFlow, False))
+
+        for index2 in range(index1+2,len(collidedFlowList)):
+            nbOfCollisions, nbOfCollidedFlows, nbOfCollisionsWithTheSecondTSNFlow, nbOfDistinctCollidedLocations, nbOfCollisionsInTheLocation = calculateCollisionsStatisticsForAFlow(
+                collidedFlowList.__getitem__(index1), collidedFlowList.__getitem__(index2), collisionLocation, listofCollisions)
+            if(collidedFlowList.__getitem__(index2) in tempCollidedFlows):
+                listOfCollidedPairs.append((collidedFlowList.__getitem__(index1), collidedFlowList.__getitem__(index2), nbOfCollisionsWithTheSecondTSNFlow,True))
+            else:
+                listOfCollidedPairs.append((collidedFlowList.__getitem__(index1), collidedFlowList.__getitem__(index2),
+                                            nbOfCollisionsWithTheSecondTSNFlow, False))
+
+    orderedListOfStatisticsPerFlows = sorted(listOfStatisticsPerFlows, key=lambda x: (x.__getitem__(a+1), x.__getitem__(b+1),x.__getitem__(c+1),x.__getitem__(d+1)), reverse=True)
+    orderedListOfCollidedPairs = sorted(listOfCollidedPairs, key=lambda x: (x.__getitem__(2)), reverse=True)
+
+
+    return orderedListOfStatisticsPerFlows, orderedListOfCollidedPairs
+
+
+
+    
+
+
+def dropBasedOnTheHighestNBOfCollisions2(listofCollisions, collisionList, collisionPerEgressPortCounter):
+    listofCollisionsV2, collisionListV2 = copyCollisionlists(listofCollisions, collisionList)
+    newCollisionPerEgressPortCounter = collisionPerEgressPortCounter
+    listOfDropedFlows = []
+    listOfOrderKeys = [1,2,0,3]         # the collided flows will be descendingly ordered (from high to low) based on the keys in this list from left to right, where:
+                                        # 0 --> nbOfCollisions (total number of collisions) a flow may collide more than once with another flow in different locations. This counter will count them all
+                                        # 1 --> nbOfCollidedFlows (number of collided flows) a flow may collide more than once in different locations with another flow but it will be counted as one in this counter
+                                        # 2 --> nbOfDistinctCollidedLocations (how many different locations a flow will have a collision at)
+                                        # 3 --> nbOfCollisionsInTheLocation (how many collisions a flow will have in the current location)
+                                        # Based on this list a flow will be drop
+                                        # The default order is [1,2,0,3], which means if a collision occur, we will drop the flow with the highest 'nbOfCollidedFlows', if we have two flows with the same 'nbOfCollidedFlows',
+                                        #               we will drop the one with the highest 'nbOfDistinctCollidedLocations', and so on.
+
+    for listItem in listofCollisions:
+        if(listItem.__getitem__(0) in listOfDropedFlows):
+            continue
+        for collisionLocation in listItem.__getitem__(4):
+
+            orderedListOfStatisticsPerFlows, orderedListOfCollidedPairs = orderCollidedFlowsBasedOnNBOfCollisions(listItem.__getitem__(0), collisionLocation, collisionListV2, listofCollisionsV2,listOfOrderKeys)
+            if(len(orderedListOfStatisticsPerFlows) == 0):
+                continue
+            if((orderedListOfCollidedPairs.__getitem__(len(orderedListOfCollidedPairs)-1).__getitem__(3)) or (orderedListOfStatisticsPerFlows.__getitem__(len(orderedListOfStatisticsPerFlows)-1) == listItem.__getitem__(0))):
+                for index in range(len(orderedListOfStatisticsPerFlows)-1):
+                    listOfDropedFlows.append(orderedListOfStatisticsPerFlows.__getitem__(index).__getitem__(0))
+                    newCollisionPerEgressPortCounter = dropTSNFlowFromCollisionLists(orderedListOfStatisticsPerFlows.__getitem__(index).__getitem__(0),listofCollisionsV2,collisionListV2,newCollisionPerEgressPortCounter)
+                if (listItem.__getitem__(0) in listOfDropedFlows):
+                    break
+            else:
+                startPosition = 0
+                while(orderedListOfStatisticsPerFlows.__getitem__(startPosition).__getitem__(0) != listItem.__getitem__(0)):
+                    listOfDropedFlows.append(orderedListOfStatisticsPerFlows.__getitem__(startPosition).__getitem__(0))
+                    newCollisionPerEgressPortCounter = dropTSNFlowFromCollisionLists(
+                        orderedListOfStatisticsPerFlows.__getitem__(startPosition).__getitem__(0), listofCollisionsV2,
+                        collisionListV2, newCollisionPerEgressPortCounter)
+                    startPosition = startPosition + 1
+
+                listOfDropedFlows.append(orderedListOfStatisticsPerFlows.__getitem__(startPosition).__getitem__(0))
+                newCollisionPerEgressPortCounter = dropTSNFlowFromCollisionLists(
+                    orderedListOfStatisticsPerFlows.__getitem__(startPosition).__getitem__(0), listofCollisionsV2,
+                    collisionListV2, newCollisionPerEgressPortCounter)
+                startPosition = startPosition + 1
+
+                for index in range(startPosition,len(orderedListOfStatisticsPerFlows)-1):
+                    flag = False
+                    currentTSNFlow = orderedListOfStatisticsPerFlows.__getitem__(index).__getitem__(0)
+                    for collidedPair in orderedListOfCollidedPairs:
+                        firstCollidedTSNFlow = collidedPair.__getitem__(0)
+                        secondCollidedTSNFlow = collidedPair.__getitem__(1)
+                        isThereACollisionAtTheLocation = collidedPair.__getitem__(2)
+                        if(((currentTSNFlow == firstCollidedTSNFlow) or (currentTSNFlow == secondCollidedTSNFlow)) and not (isThereACollisionAtTheLocation)):
+                            flag = True
+                    if flag:
+                        break
+                    listOfDropedFlows.append(currentTSNFlow)
+                    newCollisionPerEgressPortCounter = dropTSNFlowFromCollisionLists(
+                        currentTSNFlow, listofCollisionsV2,
+                        collisionListV2, newCollisionPerEgressPortCounter)
+
+    return listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter,listOfDropedFlows
+
+
+def dropBasedOnTheHighestNBOfCollisions(listofCollisions, collisionList, collisionPerEgressPortCounter):
+    listofCollisionsV2, collisionListV2 = copyCollisionlists(listofCollisions, collisionList)
+    newCollisionPerEgressPortCounter = collisionPerEgressPortCounter
+    listOfDropedFlows = []
+    listOfOrderKeys = [1,2,0,3]         # the collided flows will be descendingly ordered (from high to low) based on the keys in this list from left to right, where:
+                                        # 0 --> nbOfCollisions (total number of collisions) a flow may collide more than once with another flow in different locations. This counter will count them all
+                                        # 1 --> nbOfCollidedFlows (number of collided flows) a flow may collide more than once in different locations with another flow but it will be counted as one in this counter
+                                        # 2 --> nbOfDistinctCollidedLocations (how many different locations a flow will have a collision at)
+                                        # 3 --> nbOfCollisionsInTheLocation (how many collisions a flow will have in the current location)
+                                        # Based on this list a flow will be drop
+                                        # The default order is [1,2,0,3], which means if a collision occur, we will drop the flow with the highest 'nbOfCollidedFlows', if we have two flows with the same 'nbOfCollidedFlows',
+                                        #               we will drop the one with the highest 'nbOfDistinctCollidedLocations', and so on.
+
+    for listItem in listofCollisions:
+        flag = False
+        if(listItem.__getitem__(0) in listOfDropedFlows):
+            continue
+        for collisionLocation in listItem.__getitem__(4):
+            orderedListOfStatisticsPerFlows, orderedListOfCollidedPairs = orderCollidedFlowsBasedOnNBOfCollisions(
+                listItem.__getitem__(0), collisionLocation, collisionListV2, listofCollisionsV2, listOfOrderKeys)
+            endCondition = len(orderedListOfStatisticsPerFlows) -1
+            for i in range(endCondition):
+                orderedListOfStatisticsPerFlows, orderedListOfCollidedPairs = orderCollidedFlowsBasedOnNBOfCollisions(
+                    listItem.__getitem__(0), collisionLocation, collisionListV2, listofCollisionsV2, listOfOrderKeys)
+                tempTSNFlow = orderedListOfStatisticsPerFlows.__getitem__(0).__getitem__(0)
+                if(tempTSNFlow == listItem.__getitem__(0)):
+                    flag = True
+                listOfDropedFlows.append(tempTSNFlow)
+                newCollisionPerEgressPortCounter = dropTSNFlowFromCollisionLists(
+                    tempTSNFlow, listofCollisionsV2,
+                    collisionListV2, newCollisionPerEgressPortCounter)
+                if (flag):
+                    break
+            if(flag):
+                break
+
+
+
+    return listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter,listOfDropedFlows
+
+
+
 
 
 def dropBasedOnTheSoonestDeadline(listofCollisions, collisionList):
@@ -1433,9 +1714,10 @@ def dropBasedOnTheEarliestArrivalTime(listofCollisions, collisionList):
     pass
 
 
-def collisionResolveByDropping(listofCollisions, collisionList, selectAlgorithm):
+def collisionResolveByDropping(listofCollisions, collisionList,collisionPerEgressPortCounter, selectAlgorithm):
     if(selectAlgorithm == 0):
-        dropBasedOnTheHighestNBOfCollisions(listofCollisions, collisionList)
+        listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows = dropBasedOnTheHighestNBOfCollisions(listofCollisions, collisionList,collisionPerEgressPortCounter)
+        return listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows
     elif(selectAlgorithm == 1):
         dropBasedOnTheSoonestDeadline(listofCollisions, collisionList)
     elif(selectAlgorithm == 2):
@@ -1448,7 +1730,7 @@ def collisionResolveByDelaying(listofCollisions, collisionList, selectAlgorithm)
     pass
 
 
-def collisionResolve(listofCollisions, collisionList, resolveMethod, selectAlgorithm):
+def collisionResolve(listofCollisions, collisionList, collisionPerEgressPortCounter, resolveMethod, selectAlgorithm):
     # This function takes:
     # (1-2) The two list of collisions
     # (3)   The resolve method (0 for drop, 1 for delay)
@@ -1458,7 +1740,8 @@ def collisionResolve(listofCollisions, collisionList, resolveMethod, selectAlgor
     #                             3 for the normal (earliest arrival time)
     # Then, it updates the list accordingly
     if (resolveMethod == 0):
-        collisionResolveByDropping(listofCollisions, collisionList, selectAlgorithm)
+        listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows = collisionResolveByDropping(listofCollisions, collisionList, collisionPerEgressPortCounter, selectAlgorithm)
+        return listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows
     else:
         collisionResolveByDelaying(listofCollisions, collisionList, selectAlgorithm)
 
@@ -1925,10 +2208,10 @@ def deleteAttack(G, hostsList , firstKthPaths, timeSlotsAmount, nbOfTSNFlows, pF
         print('nb of the total scheduled flows using SWOTS_AEAP_WS: {}'.format(totalscheduledCounter))
     print("the total flows that cannot be seen by the scheduler: {}".format(totalscheduledCounter-scheduledCounter))
 
-    listofCollisionsCopy, collisionListCopy = copyCollisionlists(listofCollisions, collisionList)
-
-    temptestFlow = listofCollisionsCopy.__getitem__(0).__getitem__(0)
-    newCollisionPerEgressPortCounter = dropTSNFlowFromCollisionLists(temptestFlow, listofCollisionsCopy, collisionListCopy, collisionPerEgressPortCounter)
+    # listofCollisionsCopy, collisionListCopy = copyCollisionlists(listofCollisions, collisionList)
+    #
+    # temptestFlow = listofCollisionsCopy.__getitem__(0).__getitem__(0)
+    # newCollisionPerEgressPortCounter = dropTSNFlowFromCollisionLists(temptestFlow, listofCollisionsCopy, collisionListCopy, collisionPerEgressPortCounter)
 
     print()
     print()
@@ -1946,23 +2229,83 @@ def deleteAttack(G, hostsList , firstKthPaths, timeSlotsAmount, nbOfTSNFlows, pF
     displayCollisionList(collisionList, collisionPerEgressPortCounter)
     print()
     print()
-
+    listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows = collisionResolve(
+        listofCollisions, collisionList, collisionPerEgressPortCounter, 0, 0)
     print()
     print()
     print("--------------------------------------------------")
     print("|    Collision Summary For Each Collided Flow 2   |")
     print("--------------------------------------------------")
     print()
-    displayListOfCollisions(listofCollisionsCopy)
+    displayListOfCollisions(listofCollisionsV2)
     print()
     print()
     print("--------------------------------------------------")
     print("|         Collision Summary For Each Run 2       |")
     print("--------------------------------------------------")
     print()
-    displayCollisionList(collisionListCopy, newCollisionPerEgressPortCounter)
+    displayCollisionList(collisionListV2, newCollisionPerEgressPortCounter)
     print()
     print()
+    print("-----------------------------------------------------------")
+    print("|    The list of droped flows based on nb of collisions    |")
+    print("-----------------------------------------------------------")
+    print()
+    numberCounter = 1
+    for e in listOfDropedFlows:
+        print("({}) flow number {}".format(numberCounter,e.id))
+        numberCounter = numberCounter + 1
+
+
+
+
+
+#     print()
+#     print()
+#     listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows = collisionResolve(
+#         listofCollisions, collisionList, collisionPerEgressPortCounter, 0, 1)
+#     print()
+#     print()
+#     print("--------------------------------------------------")
+#     print("|    Collision Summary For Each Collided Flow 3   |")
+#     print("--------------------------------------------------")
+#     print()
+#     displayListOfCollisions(listofCollisionsV2)
+#     print()
+#     print()
+#     print("--------------------------------------------------")
+#     print("|         Collision Summary For Each Run 3       |")
+#     print("--------------------------------------------------")
+#     print()
+#     displayCollisionList(collisionListV2, newCollisionPerEgressPortCounter)
+#     print()
+#     print()
+#     print("-----------------------------------------------------------")
+#     print("|    The list of droped flows based on nb of collisions    |")
+#     print("-----------------------------------------------------------")
+#     print()
+#     numberCounter = 1
+#     for e in listOfDropedFlows:
+#         print("({}) flow number {}".format(numberCounter,e.id))
+#         numberCounter = numberCounter + 1
+# ###########
+#     deliveredList, deliveredCounter, droppedCounter = displaySummaryAfterResolvingCollisionUsingDrop(scheduledFlows, deletedScheduledFlows, listOfDropedFlows,"(the highest nb of collisions)")
+#     print("     dropped Counter: {}".format(droppedCounter))
+#     print("     delivered Counter: {}".format(deliveredCounter))
+#
+#     print()
+#     print()
+#     print("-----------------------------------------------------------")
+#     print("|  The list of delivered flows based on nb of collisions  |")
+#     print("-----------------------------------------------------------")
+#     print()
+#     numberCounter = 1
+#     for e in deliveredList:
+#         print("({}) flow number {}".format(numberCounter, e.id))
+#         numberCounter = numberCounter + 1
+
+
+###########
 
 
 
@@ -1971,27 +2314,54 @@ def deleteAttack(G, hostsList , firstKthPaths, timeSlotsAmount, nbOfTSNFlows, pF
 
 
 
-    # listofCollisionsCopy, collisionListCopy = copyCollisionlists(listofCollisions, collisionList)
+
+
+
+
+
+
+
+
+
     #
-    # collisionResolve(listofCollisionsCopy, collisionListCopy,0,0)
+    # text = collisionList.__getitem__(0).__getitem__(2).__getitem__(0)
+    # tempList = computeListOfCollisionsperFlowByEgressPort(collisionList,text)
+    # for listItem in tempList:
+    #     print("Flow number {} collided with {} other flows in location {} which are:".format(listItem.__getitem__(0).id,len(listItem.__getitem__(1)),text))
+    #     for i in range(len(listItem.__getitem__(1))):
+    #         print("({}) flow number {}".format(i+1,((listItem.__getitem__(1)).__getitem__(i)).id))
+    #
+    # print()
+    # print()
+    # tempList2 = computeListOfCollisionsForAFlowInEgressPort(collisionList,text,collisionList.__getitem__(0).__getitem__(0))
+    # for i in tempList2:
+    #     print(i.id)
 
 
 
 
-    print()
-    print()
-    print("....: list of scheduled flows :.....")
-    for scheduledItem in scheduledFlows:
-        print("The path for flow number {} is: {}".format(scheduledItem.__getitem__(0).id,display(scheduledItem.__getitem__(0).path)))
-    print()
-    print()
-    print("============================================")
-    print()
-    print("....: list of deleted flows :....")
-    print()
-    for deletedItem in deletedScheduledFlows:
-        print("The path for flow number {} is: {}".format(deletedItem.__getitem__(0).id,
-                                                              display(deletedItem.__getitem__(0).path)))
+
+
+
+
+
+
+
+
+    # print()
+    # print()
+    # print("....: list of scheduled flows :.....")
+    # for scheduledItem in scheduledFlows:
+    #     print("The path for flow number {} is: {}".format(scheduledItem.__getitem__(0).id,display(scheduledItem.__getitem__(0).path)))
+    # print()
+    # print()
+    # print("============================================")
+    # print()
+    # print("....: list of deleted flows :....")
+    # print()
+    # for deletedItem in deletedScheduledFlows:
+    #     print("The path for flow number {} is: {}".format(deletedItem.__getitem__(0).id,
+    #                                                           display(deletedItem.__getitem__(0).path)))
 
 
 
@@ -2192,7 +2562,7 @@ def main():
                                         #                             1   = at the end
                                         #                             0.5 = after trying to schedule 50% of TSN flows
 
-    typeofSchedulingAlgorithm = 0       # The used scheduling algorithm (0 = SWTS
+    typeofSchedulingAlgorithm = 3       # The used scheduling algorithm (0 = SWTS
                                         #                                1 = SWOTS_ASAP
                                         #                                2 = SWOTS_ASAP_WS
                                         #                                3 = SWOTS_AEAP
