@@ -21,7 +21,12 @@ from myThread2 import myThread2
 
 
 
-
+W  = '\033[0m'  # white (normal)
+R  = '\033[31m' # red
+G  = '\033[32m' # green
+O  = '\033[33m' # orange
+B  = '\033[34m' # blue
+P  = '\033[35m' # purple
 def rand(G,hosts, n):
     transmissionDelays = {}
     for i in G.nodes:
@@ -1699,38 +1704,220 @@ def dropBasedOnTheHighestNBOfCollisions(listofCollisions, collisionList, collisi
     return listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter,listOfDropedFlows
 
 
+def getSchedulingDetails(TSNFlow, scheduledFlows, deletedScheduledFlows):
+    for scheduleItem in scheduledFlows:
+        if (scheduleItem.__getitem__(0) == TSNFlow):
+            return scheduleItem
+    for deletedItem in deletedScheduledFlows:
+        if(deletedItem.__getitem__(0) == TSNFlow):
+            return deletedItem
+
+
+def getOperationIndexByOperationID(operations, operationID):
+    for i in range(len(operations)):
+        if operationID == operations.__getitem__(i):
+            return i
+    return -1
+
+def orderCollidedFlowsBasedOnTheSoonestDeadline(G,TSNFlow, collisionLocation, scheduledFlows, deletedScheduledFlows, collisionList):
+    orderedListOfCollidedFlowsBySoonestDeadline = [] # This list is ordered by the left deadline from the short to long
+    unorderedListOfCollidedFlowsBySoonestDeadline = []
+    collidedFlowList = computeListOfCollisionsForAFlowInEgressPort(collisionList, collisionLocation, TSNFlow)
+    if (len(collidedFlowList) == 0):
+        return orderedListOfCollidedFlowsBySoonestDeadline
+    scheduleItem = getSchedulingDetails(TSNFlow,scheduledFlows, deletedScheduledFlows)
+    operationID = convertEdgetoOperationID(collisionLocation)
+    if(len(scheduleItem)==2):
+        operations = map(G,TSNFlow,scheduleItem.__getitem__(1))
+        operationIndex = getOperationIndexByOperationID(operations,operationID)
+        leftDeadline = TSNFlow.flowMaxDelay - (operations.__getitem__(operationIndex-1).cumulativeDelay - scheduleItem.__getitem__(1))
+        unorderedListOfCollidedFlowsBySoonestDeadline.append((TSNFlow,leftDeadline))
+        for tempTSNFlow in collidedFlowList:
+            scheduleItem = getSchedulingDetails(tempTSNFlow, scheduledFlows, deletedScheduledFlows)
+            operations = map(G, tempTSNFlow, scheduleItem.__getitem__(1))
+            operationIndex = getOperationIndexByOperationID(operations, operationID)
+            leftDeadline = tempTSNFlow.flowMaxDelay - (
+                        operations.__getitem__(operationIndex - 1).cumulativeDelay - scheduleItem.__getitem__(1))
+            unorderedListOfCollidedFlowsBySoonestDeadline.append((tempTSNFlow, leftDeadline))
+
+    else:
+        operations = map_ws(G, TSNFlow, scheduleItem.__getitem__(1),scheduleItem.__getitem__(2))
+        operationIndex = getOperationIndexByOperationID(operations, operationID)
+        queueIndex = int((operationIndex/2)-1)
+        leftDeadline = TSNFlow.flowMaxDelay - (
+                    operations.__getitem__(operationIndex - 1).cumulativeDelay + scheduleItem.__getitem__(2).__getitem__(queueIndex) - scheduleItem.__getitem__(1))
+        unorderedListOfCollidedFlowsBySoonestDeadline.append((TSNFlow, leftDeadline))
+        for tempTSNFlow in collidedFlowList:
+            scheduleItem = getSchedulingDetails(tempTSNFlow, scheduledFlows, deletedScheduledFlows)
+            operations = map_ws(G, tempTSNFlow, scheduleItem.__getitem__(1),scheduleItem.__getitem__(2))
+            operationIndex = getOperationIndexByOperationID(operations, operationID)
+            queueIndex = int((operationIndex / 2) - 1)
+            leftDeadline = tempTSNFlow.flowMaxDelay - (
+                    operations.__getitem__(operationIndex - 1).cumulativeDelay + scheduleItem.__getitem__(2).__getitem__(queueIndex) - scheduleItem.__getitem__(1))
+            unorderedListOfCollidedFlowsBySoonestDeadline.append((tempTSNFlow, leftDeadline))
 
 
 
-def dropBasedOnTheSoonestDeadline(listofCollisions, collisionList):
-    pass
+    orderedListOfCollidedFlowsBySoonestDeadline = sorted(unorderedListOfCollidedFlowsBySoonestDeadline, key=lambda x: (x.__getitem__(1)), reverse=False)
+    return orderedListOfCollidedFlowsBySoonestDeadline
 
 
-def dropBasedOnTheShortestDelay(listofCollisions, collisionList):
-    pass
+
+def dropBasedOnTheSoonestDeadline(G,scheduledFlows, deletedScheduledFlows, listofCollisions, collisionList, collisionPerEgressPortCounter):
+    listofCollisionsV2, collisionListV2 = copyCollisionlists(listofCollisions, collisionList)
+    newCollisionPerEgressPortCounter = collisionPerEgressPortCounter
+    listOfDropedFlows = []
 
 
-def dropBasedOnTheEarliestArrivalTime(listofCollisions, collisionList):
-    pass
+    for listItem in listofCollisions:
+        flag = False
+        if (listItem.__getitem__(0) in listOfDropedFlows):
+            continue
+        for collisionLocation in listItem.__getitem__(4):
+            orderedListOfCollidedFlowsBySoonestDeadline = orderCollidedFlowsBasedOnTheSoonestDeadline(G,listItem.__getitem__(0), collisionLocation,scheduledFlows, deletedScheduledFlows, collisionListV2)
+            endCondition = len(orderedListOfCollidedFlowsBySoonestDeadline) - 1
+            for i in range(endCondition):
+                tempTSNFlow = orderedListOfCollidedFlowsBySoonestDeadline.__getitem__(i).__getitem__(0)
+                if (tempTSNFlow == listItem.__getitem__(0)):
+                    flag = True
+                listOfDropedFlows.append(tempTSNFlow)
+                newCollisionPerEgressPortCounter = dropTSNFlowFromCollisionLists(
+                    tempTSNFlow, listofCollisionsV2,
+                    collisionListV2, newCollisionPerEgressPortCounter)
+                if (flag):
+                    break
+            if (flag):
+                break
+
+    return listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows
 
 
-def collisionResolveByDropping(listofCollisions, collisionList,collisionPerEgressPortCounter, selectAlgorithm):
+def dropBasedOnTheShortestDelay(G,scheduledFlows, deletedScheduledFlows,listofCollisions, collisionList, collisionPerEgressPortCounter):
+    listofCollisionsV2, collisionListV2 = copyCollisionlists(listofCollisions, collisionList)
+    newCollisionPerEgressPortCounter = collisionPerEgressPortCounter
+    listOfDropedFlows = []
+
+    for listItem in listofCollisions:
+        flag = False
+        if (listItem.__getitem__(0) in listOfDropedFlows):
+            continue
+        for collisionLocation in listItem.__getitem__(4):
+            orderedListOfCollidedFlowsByEarliestArrivalTime = orderCollidedFlowsBasedOnTheEarliestArrivalTime(G,
+                                                                                                              listItem.__getitem__(
+                                                                                                                  0),
+                                                                                                              collisionLocation,
+                                                                                                              scheduledFlows,
+                                                                                                              deletedScheduledFlows,
+                                                                                                              collisionListV2,
+                                                                                                              listofCollisionsV2)
+            endCondition = len(orderedListOfCollidedFlowsByEarliestArrivalTime) - 1
+            for i in range(endCondition):
+                tempTSNFlow = orderedListOfCollidedFlowsByEarliestArrivalTime.__getitem__(i).__getitem__(0)
+                if (tempTSNFlow == listItem.__getitem__(0)):
+                    flag = True
+                listOfDropedFlows.append(tempTSNFlow)
+                newCollisionPerEgressPortCounter = dropTSNFlowFromCollisionLists(
+                    tempTSNFlow, listofCollisionsV2,
+                    collisionListV2, newCollisionPerEgressPortCounter)
+                if (flag):
+                    break
+            if (flag):
+                break
+
+    return listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows
+
+
+def orderCollidedFlowsBasedOnTheEarliestArrivalTime(G, TSNFlow, collisionLocation, scheduledFlows, deletedScheduledFlows,
+                                                    collisionList):
+    orderedListOfCollidedFlowsByEarliestArrivalTime = []  # This list is ordered by the left deadline from the short to long
+    unorderedListOfCollidedFlowsByEarliestArrivalTime = []
+    collidedFlowList = computeListOfCollisionsForAFlowInEgressPort(collisionList, collisionLocation, TSNFlow)
+    if (len(collidedFlowList) == 0):
+        return orderedListOfCollidedFlowsByEarliestArrivalTime
+    scheduleItem = getSchedulingDetails(TSNFlow, scheduledFlows, deletedScheduledFlows)
+    operationID = convertEdgetoOperationID(collisionLocation)
+    if (len(scheduleItem) == 2):
+        operations = map(G, TSNFlow, scheduleItem.__getitem__(1))
+        operationIndex = getOperationIndexByOperationID(operations, operationID)
+        arrivalTime = operations.__getitem__(operationIndex - 1).cumulativeDelay
+        unorderedListOfCollidedFlowsByEarliestArrivalTime.append((TSNFlow, arrivalTime))
+        for tempTSNFlow in collidedFlowList:
+            scheduleItem = getSchedulingDetails(tempTSNFlow, scheduledFlows, deletedScheduledFlows)
+            operations = map(G, tempTSNFlow, scheduleItem.__getitem__(1))
+            operationIndex = getOperationIndexByOperationID(operations, operationID)
+            arrivalTime = operations.__getitem__(operationIndex - 1).cumulativeDelay
+            unorderedListOfCollidedFlowsByEarliestArrivalTime.append((tempTSNFlow, arrivalTime))
+
+    else:
+        operations = map_ws(G, TSNFlow, scheduleItem.__getitem__(1), scheduleItem.__getitem__(2))
+        operationIndex = getOperationIndexByOperationID(operations, operationID)
+        queueIndex = int((operationIndex / 2) - 1)
+        arrivalTime = operations.__getitem__(operationIndex - 1).cumulativeDelay + scheduleItem.__getitem__(2).__getitem__(
+            queueIndex)
+        unorderedListOfCollidedFlowsByEarliestArrivalTime.append((TSNFlow, arrivalTime))
+        for tempTSNFlow in collidedFlowList:
+            scheduleItem = getSchedulingDetails(tempTSNFlow, scheduledFlows, deletedScheduledFlows)
+            operations = map_ws(G, tempTSNFlow, scheduleItem.__getitem__(1), scheduleItem.__getitem__(2))
+            operationIndex = getOperationIndexByOperationID(operations, operationID)
+            queueIndex = int((operationIndex / 2) - 1)
+            arrivalTime = operations.__getitem__(operationIndex - 1).cumulativeDelay + scheduleItem.__getitem__(
+                2).__getitem__(queueIndex)
+            unorderedListOfCollidedFlowsByEarliestArrivalTime.append((tempTSNFlow, arrivalTime))
+
+    orderedListOfCollidedFlowsByEarliestArrivalTime = sorted(unorderedListOfCollidedFlowsByEarliestArrivalTime,
+                                                         key=lambda x: (x.__getitem__(1)), reverse=True)
+    return orderedListOfCollidedFlowsByEarliestArrivalTime
+
+
+def dropBasedOnTheEarliestArrivalTime(G, scheduledFlows, deletedScheduledFlows, listofCollisions, collisionList, collisionPerEgressPortCounter):
+
+    listofCollisionsV2, collisionListV2 = copyCollisionlists(listofCollisions, collisionList)
+    newCollisionPerEgressPortCounter = collisionPerEgressPortCounter
+    listOfDropedFlows = []
+
+    for listItem in listofCollisions:
+        flag = False
+        if (listItem.__getitem__(0) in listOfDropedFlows):
+            continue
+        for collisionLocation in listItem.__getitem__(4):
+            orderedListOfCollidedFlowsByEarliestArrivalTime = orderCollidedFlowsBasedOnTheEarliestArrivalTime(G,listItem.__getitem__(0),collisionLocation,scheduledFlows,deletedScheduledFlows,collisionListV2)
+            endCondition = len(orderedListOfCollidedFlowsByEarliestArrivalTime) - 1
+            for i in range(endCondition):
+                tempTSNFlow = orderedListOfCollidedFlowsByEarliestArrivalTime.__getitem__(i).__getitem__(0)
+                if (tempTSNFlow == listItem.__getitem__(0)):
+                    flag = True
+                listOfDropedFlows.append(tempTSNFlow)
+                newCollisionPerEgressPortCounter = dropTSNFlowFromCollisionLists(
+                    tempTSNFlow, listofCollisionsV2,
+                    collisionListV2, newCollisionPerEgressPortCounter)
+                if (flag):
+                    break
+            if (flag):
+                break
+
+    return listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows
+
+def collisionResolveByDropping(G,scheduledFlows, deletedScheduledFlows,listofCollisions, collisionList,collisionPerEgressPortCounter, selectAlgorithm):
     if(selectAlgorithm == 0):
         listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows = dropBasedOnTheHighestNBOfCollisions(listofCollisions, collisionList,collisionPerEgressPortCounter)
         return listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows
     elif(selectAlgorithm == 1):
-        dropBasedOnTheSoonestDeadline(listofCollisions, collisionList)
+        listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows = dropBasedOnTheSoonestDeadline(G,scheduledFlows, deletedScheduledFlows,listofCollisions, collisionList, collisionPerEgressPortCounter)
+        return listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows
     elif(selectAlgorithm == 2):
-        dropBasedOnTheShortestDelay(listofCollisions, collisionList)
+        listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows = dropBasedOnTheShortestDelay(G,scheduledFlows, deletedScheduledFlows,listofCollisions, collisionList, collisionPerEgressPortCounter)
+        return listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows
     else:
-        dropBasedOnTheEarliestArrivalTime(listofCollisions, collisionList)
+        listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows = dropBasedOnTheEarliestArrivalTime(
+            G, scheduledFlows, deletedScheduledFlows, listofCollisions, collisionList, collisionPerEgressPortCounter)
+        return listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows
 
 
 def collisionResolveByDelaying(listofCollisions, collisionList, selectAlgorithm):
     pass
 
 
-def collisionResolve(listofCollisions, collisionList, collisionPerEgressPortCounter, resolveMethod, selectAlgorithm):
+def collisionResolve(G,scheduledFlows, deletedScheduledFlows,listofCollisions, collisionList, collisionPerEgressPortCounter, resolveMethod, selectAlgorithm):
     # This function takes:
     # (1-2) The two list of collisions
     # (3)   The resolve method (0 for drop, 1 for delay)
@@ -1740,7 +1927,7 @@ def collisionResolve(listofCollisions, collisionList, collisionPerEgressPortCoun
     #                             3 for the normal (earliest arrival time)
     # Then, it updates the list accordingly
     if (resolveMethod == 0):
-        listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows = collisionResolveByDropping(listofCollisions, collisionList, collisionPerEgressPortCounter, selectAlgorithm)
+        listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows = collisionResolveByDropping(G,scheduledFlows, deletedScheduledFlows,listofCollisions, collisionList, collisionPerEgressPortCounter, selectAlgorithm)
         return listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows
     else:
         collisionResolveByDelaying(listofCollisions, collisionList, selectAlgorithm)
@@ -2229,8 +2416,27 @@ def deleteAttack(G, hostsList , firstKthPaths, timeSlotsAmount, nbOfTSNFlows, pF
     displayCollisionList(collisionList, collisionPerEgressPortCounter)
     print()
     print()
-    listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows = collisionResolve(
-        listofCollisions, collisionList, collisionPerEgressPortCounter, 0, 0)
+    resolveMethod = 0               # 0 for dropping and 1 for delaying
+    selectAlgorithm = 3             # 0,1,2 or 3 check the method body to understand the meaning of this algorithms
+    while(selectAlgorithm not in [0,1,2,3]):
+        selectAlgorithm = input("Please, select an algorithm between 0-3")
+        try:
+            selectAlgorithm = int(selectAlgorithm)
+        except:
+            continue
+    while (resolveMethod not in [0, 1]):
+        resolveMethod = input("Please, select a resolve method, where 0 means drop and 1 means delay")
+        try:
+            resolveMethod = int(resolveMethod)
+        except:
+            continue
+    if(selectAlgorithm in [1,2,3] and typeofSchedulingAlgorithm == 0):
+        print(
+            R + "WARNING: The select algorithm cannot be used with SWTS due to the schedule nature\nOnly selecting the flow with highest number of collisions works with this scheduling algorithm.\nTherefore, the select algorithm is changed to 0" + W)
+        selectAlgorithm = 0
+
+    listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows = collisionResolve(G,scheduledFlows, deletedScheduledFlows,
+        listofCollisions, collisionList, collisionPerEgressPortCounter, resolveMethod, selectAlgorithm)
     print()
     print()
     print("--------------------------------------------------")
@@ -2262,7 +2468,7 @@ def deleteAttack(G, hostsList , firstKthPaths, timeSlotsAmount, nbOfTSNFlows, pF
 
 #     print()
 #     print()
-#     listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows = collisionResolve(
+#     listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows = collisionResolve(G,scheduledFlows, deletedScheduledFlows,
 #         listofCollisions, collisionList, collisionPerEgressPortCounter, 0, 1)
 #     print()
 #     print()
@@ -2562,7 +2768,7 @@ def main():
                                         #                             1   = at the end
                                         #                             0.5 = after trying to schedule 50% of TSN flows
 
-    typeofSchedulingAlgorithm = 3       # The used scheduling algorithm (0 = SWTS
+    typeofSchedulingAlgorithm = 4       # The used scheduling algorithm (0 = SWTS
                                         #                                1 = SWOTS_ASAP
                                         #                                2 = SWOTS_ASAP_WS
                                         #                                3 = SWOTS_AEAP
