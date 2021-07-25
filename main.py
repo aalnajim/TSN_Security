@@ -1162,7 +1162,7 @@ def computeListOfCollisionsForAFlowInEgressPort(collisionList,collisionLocation,
     return result
 
 
-def getWaitingTimesperFlowByEgressPort(collisionList, collisionLocation):
+def getWaitingTimesperFlowByEgressPort(listOfCollisions, collisionLocation):
     # This method takes two parameters:
     # (1) The list 'collisionList', which has all distinct collisions in the form of (firstTSNFlow, firstTSNFlow, collisionLocations)
     # (2) The collisionLocation in the form of string as follow "(2,3)"
@@ -1171,27 +1171,25 @@ def getWaitingTimesperFlowByEgressPort(collisionList, collisionLocation):
 
     result = []  # A list of all waiting times in 'collisionLocation' in the form of (firstTSNFlow, listOfWaitingTimes)
     reigsteredTSNFlows = []
-    for listItem in collisionList:
-        if(len(listItem)<4):
+    for listItem in listOfCollisions:
+        if(len(listItem)<6):
             break
-        if (collisionLocation in listItem.__getitem__(2)):
-            if (listItem.__getitem__(0) in reigsteredTSNFlows):
-                theFirstFlowIndex = reigsteredTSNFlows.index(listItem.__getitem__(0))
-                ((result.__getitem__(theFirstFlowIndex)).__getitem__(1)).append(listItem.__getitem__(1))
-            else:
-                result.append((listItem.__getitem__(0), [listItem.__getitem__(1)]))
-                reigsteredTSNFlows.append(listItem.__getitem__(0))
-            if (listItem.__getitem__(1) in reigsteredTSNFlows):
-                theSecondFlowIndex = reigsteredTSNFlows.index(listItem.__getitem__(1))
-                ((result.__getitem__(theSecondFlowIndex)).__getitem__(1)).append(listItem.__getitem__(0))
-            else:
-                result.append((listItem.__getitem__(1), [listItem.__getitem__(0)]))
-                reigsteredTSNFlows.append(listItem.__getitem__(1))
+        if (collisionLocation in listItem.__getitem__(4)):
+            for tempIndex in range(len(listItem.__getitem__(3))):
+                if(listItem.__getitem__(4).__getitem__(tempIndex)==collisionLocation):
+                    if (listItem.__getitem__(0) in reigsteredTSNFlows):
+                        theFirstFlowIndex = reigsteredTSNFlows.index(listItem.__getitem__(0))
+                        ((result.__getitem__(theFirstFlowIndex)).__getitem__(1)).append(listItem.__getitem__(3).__getitem__(tempIndex))
+                        ((result.__getitem__(theFirstFlowIndex)).__getitem__(2)).append(
+                            listItem.__getitem__(5).__getitem__(tempIndex))
+                    else:
+                        result.append((listItem.__getitem__(0), [listItem.__getitem__(3).__getitem__(tempIndex)], [listItem.__getitem__(5).__getitem__(tempIndex)]))
+                        reigsteredTSNFlows.append(listItem.__getitem__(0))
 
     return result
 
 
-def getWaitingTimesForAFlowInEgressPort(collisionList,collisionLocation,TSNFlow):
+def getWaitingTimeForAFlowInEgressPort(listOfCollision,collisionLocation,TSNFlow):
     # This method takes three parameters:
     # (1) The list 'collisionList', which has all distinct collisions in the form of (firstTSNFlow, firstTSNFlow, collisionLocations)
     # (2) The collisionLocation in the form of string as follow "(2,3)"
@@ -1200,10 +1198,10 @@ def getWaitingTimesForAFlowInEgressPort(collisionList,collisionLocation,TSNFlow)
     # each entry in 'listOfWaitingTimes' corresponds to an entry in 'listOfCollidedTSNFlows' obtain from method 'computeListOfCollisionsForAFlowInEgressPort'
 
     result = []
-    tempList = getWaitingTimesperFlowByEgressPort(collisionList,collisionLocation)
+    tempList = getWaitingTimesperFlowByEgressPort(listOfCollision,collisionLocation)
     for listItem in tempList:
         if (listItem.__getitem__(0)== TSNFlow):
-            result = listItem.__getitem__(1)
+            result = listItem.__getitem__(2)
             break
 
 
@@ -1344,9 +1342,10 @@ def computeCollisionPerFlowSWOTS_WS(G, scheduledFlows, deletedFlows, listofColli
                     tempScheduledOperationArrivalTime = SFO.__getitem__(index2 - 1).cumulativeDelay + SQD.__getitem__(queuingIndex2)
                     tempScheduledOperationFinishTime = SO.cumulativeDelay
                     if (((tempDeletedOperationFinishTime >= tempScheduledOperationFinishTime) and (
-                            tempDeletedOperationArrivalTime <= tempScheduledOperationFinishTime)) or
-                            ((tempDeletedOperationFinishTime >= tempScheduledOperationArrivalTime) and (
-                                    tempDeletedOperationArrivalTime <= tempScheduledOperationArrivalTime))):
+                            tempDeletedOperationArrivalTime < tempScheduledOperationFinishTime)) or
+                            ((tempDeletedOperationFinishTime > tempScheduledOperationArrivalTime) and (
+                                    tempDeletedOperationArrivalTime <= tempScheduledOperationArrivalTime)) or
+                    ((tempDeletedOperationFinishTime <= tempScheduledOperationFinishTime) and (tempDeletedOperationArrivalTime >= tempScheduledOperationArrivalTime))):
                         CollisionCounterPerFlow = CollisionCounterPerFlow + 1
                         ListOfCollidedTSNFlows.append(SF)
                         ListOfCollidedLocations.append(convertOperationIDtoEdge(SO.id))
@@ -1373,9 +1372,10 @@ def computeCollisionPerFlowSWOTS_WS(G, scheduledFlows, deletedFlows, listofColli
                     deletedOperationArrivalTime = DFO.__getitem__(index2 - 1).cumulativeDelay + DQD.__getitem__(queuingIndex2)
                     deletedOperationFinishTime = DO.cumulativeDelay
                     if (((tempDeletedOperationFinishTime >= deletedOperationFinishTime) and (
-                            tempDeletedOperationArrivalTime <= deletedOperationFinishTime)) or
-                            ((tempDeletedOperationFinishTime >= deletedOperationArrivalTime) and (
-                                    tempDeletedOperationArrivalTime <= deletedOperationArrivalTime))):
+                            tempDeletedOperationArrivalTime < deletedOperationFinishTime)) or
+                            ((tempDeletedOperationFinishTime > deletedOperationArrivalTime) and (
+                                    tempDeletedOperationArrivalTime <= deletedOperationArrivalTime)) or
+                    ((tempDeletedOperationFinishTime <= deletedOperationFinishTime) and (tempDeletedOperationArrivalTime >= deletedOperationArrivalTime))):
                         CollisionCounterPerFlow = CollisionCounterPerFlow + 1
                         ListOfCollidedTSNFlows.append(DF)
                         ListOfCollidedLocations.append(convertOperationIDtoEdge(DO.id))
@@ -1428,8 +1428,9 @@ def computeCollisionPerFlowSWOTS(G, scheduledFlows, deletedFlows, listofCollisio
                     tempDeletedOperationFinishTime = tempOperation.cumulativeDelay
                     tempScheduledOperationArrivalTime = SFO.__getitem__(index2 - 1).cumulativeDelay
                     tempScheduledOperationFinishTime = SO.cumulativeDelay
-                    if(((tempDeletedOperationFinishTime >= tempScheduledOperationFinishTime) and (tempDeletedOperationArrivalTime<= tempScheduledOperationFinishTime)) or
-                            ((tempDeletedOperationFinishTime >= tempScheduledOperationArrivalTime) and (tempDeletedOperationArrivalTime <= tempScheduledOperationArrivalTime))):
+                    if(((tempDeletedOperationFinishTime >= tempScheduledOperationFinishTime) and (tempDeletedOperationArrivalTime< tempScheduledOperationFinishTime)) or
+                            ((tempDeletedOperationFinishTime > tempScheduledOperationArrivalTime) and (tempDeletedOperationArrivalTime <= tempScheduledOperationArrivalTime)) or
+                            ((tempDeletedOperationFinishTime <= tempScheduledOperationFinishTime) and (tempDeletedOperationArrivalTime >= tempScheduledOperationArrivalTime))):
                         CollisionCounterPerFlow = CollisionCounterPerFlow + 1
                         ListOfCollidedTSNFlows.append(SF)
                         ListOfCollidedLocations.append(convertOperationIDtoEdge(SO.id))
@@ -1452,8 +1453,9 @@ def computeCollisionPerFlowSWOTS(G, scheduledFlows, deletedFlows, listofCollisio
                     tempDeletedOperationFinishTime = tempOperation.cumulativeDelay
                     deletedOperationArrivalTime = DFO.__getitem__(index2 - 1).cumulativeDelay
                     deletedOperationFinishTime = DO.cumulativeDelay
-                    if(((tempDeletedOperationFinishTime >= deletedOperationFinishTime) and (tempDeletedOperationArrivalTime<= deletedOperationFinishTime)) or
-                            ((tempDeletedOperationFinishTime >= deletedOperationArrivalTime) and (tempDeletedOperationArrivalTime <= deletedOperationArrivalTime))):
+                    if(((tempDeletedOperationFinishTime >= deletedOperationFinishTime) and (tempDeletedOperationArrivalTime< deletedOperationFinishTime)) or
+                            ((tempDeletedOperationFinishTime > deletedOperationArrivalTime) and (tempDeletedOperationArrivalTime <= deletedOperationArrivalTime)) or
+                    ((tempDeletedOperationFinishTime <= deletedOperationFinishTime) and (tempDeletedOperationArrivalTime >= deletedOperationArrivalTime))):
                         CollisionCounterPerFlow = CollisionCounterPerFlow + 1
                         ListOfCollidedTSNFlows.append(DF)
                         ListOfCollidedLocations.append(convertOperationIDtoEdge(DO.id))
@@ -1763,7 +1765,7 @@ def getSchedulingDetails(TSNFlow, scheduledFlows, deletedScheduledFlows):
 
 def getOperationIndexByOperationID(operations, operationID):
     for i in range(len(operations)):
-        if operationID == operations.__getitem__(i):
+        if operationID == operations.__getitem__(i).id:
             return i
     return -1
 
@@ -1840,53 +1842,51 @@ def dropBasedOnTheSoonestDeadline(G,scheduledFlows, deletedScheduledFlows, listo
     return listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows
 
 
-def orderCollidedFlowsBasedOnTheShortestDelay(G, TSNFlow, collisionLocation, scheduledFlows, deletedScheduledFlows,
-                                              collisionList):
-    orderedListOfCollidedFlowsByShortestDelay = []  # This list is ordered by the shortest delay from the low delay to the high
+def orderCollidedFlowsBasedOnTheShortestDelay(TSNFlow, collisionLocation, collisionList,listOfCollision):
+    orderedListOfCollidedFlowsByShortestDelay = []  # This list is ordered by the shortest delay from the short delay to the high one
+                                                    # The delay is the maximum delay a flow encounters in an egrees port by delaying its start time after the
+                                                    #       finish time of the other TSN flow. So if flow1 collide with flow2 and flow3 at egress port '(1,2)',
+                                                    #       and the delay caused by flow2 to flow1 (since we will make it start before flow1) is 4 and the delay
+                                                    #       caused by flow3 to flow1 is 3, an entry to this list will be in this form: [(flow1,flow2,4)]. Where flow1
+                                                    #       is the current flow and flow2 is the flow that cause the highest delay and 4 is the amount of the delay.
+                                                    # when we get the full list of all the flows that collided with 'TSNFlow', we ordered it by the shortest delay
     unorderedListOfCollidedFlowsByShortestDelay = []
     collidedFlowList = computeListOfCollisionsForAFlowInEgressPort(collisionList, collisionLocation, TSNFlow)
+    collidedWaitingTimes = getWaitingTimeForAFlowInEgressPort(listOfCollision,collisionLocation,TSNFlow)
     if (len(collidedFlowList) == 0):
         return orderedListOfCollidedFlowsByShortestDelay
-    scheduleItem = getSchedulingDetails(TSNFlow, scheduledFlows, deletedScheduledFlows)
-    operationID = convertEdgetoOperationID(collisionLocation)
-    if (len(scheduleItem) == 2):
-        operations = map(G, TSNFlow, scheduleItem.__getitem__(1))
-        operationIndex = getOperationIndexByOperationID(operations, operationID)
-        leftDeadline = TSNFlow.flowMaxDelay - (
-                    operations.__getitem__(operationIndex - 1).cumulativeDelay - scheduleItem.__getitem__(1))
-        unorderedListOfCollidedFlowsBySoonestDeadline.append((TSNFlow, leftDeadline))
-        for tempTSNFlow in collidedFlowList:
-            scheduleItem = getSchedulingDetails(tempTSNFlow, scheduledFlows, deletedScheduledFlows)
-            operations = map(G, tempTSNFlow, scheduleItem.__getitem__(1))
-            operationIndex = getOperationIndexByOperationID(operations, operationID)
-            leftDeadline = tempTSNFlow.flowMaxDelay - (
-                    operations.__getitem__(operationIndex - 1).cumulativeDelay - scheduleItem.__getitem__(1))
-            unorderedListOfCollidedFlowsBySoonestDeadline.append((tempTSNFlow, leftDeadline))
+    maxWaitingTime = 0
+    secondTSNFlow = None
+    for i in range(len(collidedFlowList)):
+        if (collidedWaitingTimes.__getitem__(i)>maxWaitingTime):
+            maxWaitingTime = collidedWaitingTimes.__getitem__(i)
+            secondTSNFlow = collidedFlowList.__getitem__(i)
 
-    else:
-        operations = map_ws(G, TSNFlow, scheduleItem.__getitem__(1), scheduleItem.__getitem__(2))
-        operationIndex = getOperationIndexByOperationID(operations, operationID)
-        queueIndex = int((operationIndex / 2) - 1)
-        leftDeadline = TSNFlow.flowMaxDelay - (
-                operations.__getitem__(operationIndex - 1).cumulativeDelay + scheduleItem.__getitem__(2).__getitem__(
-            queueIndex) - scheduleItem.__getitem__(1))
-        unorderedListOfCollidedFlowsBySoonestDeadline.append((TSNFlow, leftDeadline))
-        for tempTSNFlow in collidedFlowList:
-            scheduleItem = getSchedulingDetails(tempTSNFlow, scheduledFlows, deletedScheduledFlows)
-            operations = map_ws(G, tempTSNFlow, scheduleItem.__getitem__(1), scheduleItem.__getitem__(2))
-            operationIndex = getOperationIndexByOperationID(operations, operationID)
-            queueIndex = int((operationIndex / 2) - 1)
-            leftDeadline = tempTSNFlow.flowMaxDelay - (
-                    operations.__getitem__(operationIndex - 1).cumulativeDelay + scheduleItem.__getitem__(
-                2).__getitem__(queueIndex) - scheduleItem.__getitem__(1))
-            unorderedListOfCollidedFlowsBySoonestDeadline.append((tempTSNFlow, leftDeadline))
+    unorderedListOfCollidedFlowsByShortestDelay.append((TSNFlow, secondTSNFlow, maxWaitingTime))
+    for tempTSNFlow in collidedFlowList:
+        anotherCollidedFlowList = computeListOfCollisionsForAFlowInEgressPort(collisionList, collisionLocation, tempTSNFlow)
+        collidedWaitingTimes = getWaitingTimeForAFlowInEgressPort(listOfCollision, collisionLocation, tempTSNFlow)
+        maxWaitingTime = collidedWaitingTimes.__getitem__(anotherCollidedFlowList.index(TSNFlow))
+        secondTSNFlow = TSNFlow
+        for secondTempTSNFlow in collidedFlowList:
+            if (secondTempTSNFlow == tempTSNFlow):
+                continue
+            if(secondTempTSNFlow in anotherCollidedFlowList):
+                waitingTime = collidedWaitingTimes.__getitem__(anotherCollidedFlowList.index(secondTempTSNFlow))
+                if(waitingTime> maxWaitingTime):
+                    secondTSNFlow = secondTempTSNFlow
+                    maxWaitingTime = waitingTime
 
-    orderedListOfCollidedFlowsBySoonestDeadline = sorted(unorderedListOfCollidedFlowsBySoonestDeadline,
-                                                         key=lambda x: (x.__getitem__(1)), reverse=False)
-    return orderedListOfCollidedFlowsBySoonestDeadline
+        unorderedListOfCollidedFlowsByShortestDelay.append((tempTSNFlow, secondTSNFlow,maxWaitingTime))
 
 
-def dropBasedOnTheShortestDelay(G,scheduledFlows, deletedScheduledFlows,listofCollisions, collisionList, collisionPerEgressPortCounter):
+
+    orderedListOfCollidedFlowsByShortestDelay = sorted(unorderedListOfCollidedFlowsByShortestDelay,
+                                                         key=lambda x: (x.__getitem__(2)), reverse=False)
+    return orderedListOfCollidedFlowsByShortestDelay
+
+
+def dropBasedOnTheShortestDelay(listofCollisions, collisionList, collisionPerEgressPortCounter):
     listofCollisionsV2, collisionListV2 = copyCollisionlists(listofCollisions, collisionList)
     newCollisionPerEgressPortCounter = collisionPerEgressPortCounter
     listOfDropedFlows = []
@@ -1896,13 +1896,12 @@ def dropBasedOnTheShortestDelay(G,scheduledFlows, deletedScheduledFlows,listofCo
         if (listItem.__getitem__(0) in listOfDropedFlows):
             continue
         for collisionLocation in listItem.__getitem__(4):
-            orderedListOfCollidedFlowsByShortestDelay = orderCollidedFlowsBasedOnTheShortestDelay(G,listItem.__getitem__(0),collisionLocation,scheduledFlows,deletedScheduledFlows,
-                                                                                                              collisionListV2)
+            orderedListOfCollidedFlowsByShortestDelay = orderCollidedFlowsBasedOnTheShortestDelay(listItem.__getitem__(0),collisionLocation,
+                                                                                                              collisionListV2,listofCollisionsV2)
             endCondition = len(orderedListOfCollidedFlowsByShortestDelay) - 1
             for i in range(endCondition):
-                orderedListOfCollidedFlowsByShortestDelay = orderCollidedFlowsBasedOnTheShortestDelay(G,listItem.__getitem__(0),collisionLocation,scheduledFlows,
-                                                                                                      deletedScheduledFlows,collisionListV2)
-                tempTSNFlow = orderedListOfCollidedFlowsByShortestDelay.__getitem__(i).__getitem__(0)
+                orderedListOfCollidedFlowsByShortestDelay = orderCollidedFlowsBasedOnTheShortestDelay(listItem.__getitem__(0),collisionLocation,collisionListV2,listofCollisionsV2)
+                tempTSNFlow = orderedListOfCollidedFlowsByShortestDelay.__getitem__(len(orderedListOfCollidedFlowsByShortestDelay)-1).__getitem__(1)
                 if (tempTSNFlow == listItem.__getitem__(0)):
                     flag = True
                 listOfDropedFlows.append(tempTSNFlow)
@@ -1994,7 +1993,7 @@ def collisionResolveByDropping(G,scheduledFlows, deletedScheduledFlows,listofCol
         listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows = dropBasedOnTheSoonestDeadline(G,scheduledFlows, deletedScheduledFlows,listofCollisions, collisionList, collisionPerEgressPortCounter)
         return listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows
     elif(selectAlgorithm == 2):
-        listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows = dropBasedOnTheShortestDelay(G,scheduledFlows, deletedScheduledFlows,listofCollisions, collisionList, collisionPerEgressPortCounter)
+        listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows = dropBasedOnTheShortestDelay(listofCollisions, collisionList, collisionPerEgressPortCounter)
         return listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows
     else:
         listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows = dropBasedOnTheEarliestArrivalTime(
@@ -2463,6 +2462,106 @@ def deleteAttack(G, hostsList , firstKthPaths, timeSlotsAmount, nbOfTSNFlows, pF
         # (2) a counter of all distinct collisions in Egress Ports,i.e., the summation of "len(listOfCollisionsLocations)" for all elements in "collisionList"
 
 
+    for schedulItem in scheduledFlows:
+        TF = schedulItem.__getitem__(0)
+        startTime = schedulItem.__getitem__(1)
+        if(len(schedulItem)>2):
+            queuingDelays = schedulItem.__getitem__(2)
+            operations = map_ws(G,TF,startTime,queuingDelays)
+        else:
+            operations = map(G, TF, startTime)
+        if (len(schedulItem) == 2):
+            print(O+"TSN Flow number {} with deadline {} and startTime {} has the following operations: [".format(TF.id,TF.flowMaxDelay,startTime),end="")
+            index = 0
+            for operation in operations:
+                if(index != len(operations)-1):
+                    print("{}:{}], [".format(operation.id,operation.cumulativeDelay),end="")
+                else:
+                    print("{}:{}]".format(operation.id, operation.cumulativeDelay))
+
+                index =index +1
+        else:
+            print(O + "TSN Flow number {} with deadline {} and startTime {} has the following operations: [".format(TF.id,TF.flowMaxDelay,startTime), end="")
+            index = 0
+            for operation in operations:
+                if (index != len(operations) - 1):
+                    if(index == 0 or index%2 == 1):
+                        print("{}:{}], [".format(operation.id, operation.cumulativeDelay), end="")
+                    elif(index%2 ==0):
+                        print("{}:{}:QD={}], [".format(operation.id, operation.cumulativeDelay,queuingDelays.__getitem__(int((index/2)-1))), end="")
+                else:
+                    print("{}:{}]".format(operation.id, operation.cumulativeDelay))
+
+                index = index + 1
+        print()
+
+    for schedulItem in deletedScheduledFlows:
+        TF = schedulItem.__getitem__(0)
+        startTime = schedulItem.__getitem__(1)
+        if(len(schedulItem)>2):
+            queuingDelays = schedulItem.__getitem__(2)
+            operations = map_ws(G,TF,startTime,queuingDelays)
+        else:
+            operations = map(G, TF, startTime)
+        if (len(schedulItem) == 2):
+            print(O+"TSN Flow number {} with deadline {} and startTime {} has the following operations: [".format(TF.id, TF.flowMaxDelay,startTime),end="")
+            index = 0
+            for operation in operations:
+                if(index != len(operations)-1):
+                    print("{}:{}], [".format(operation.id,operation.cumulativeDelay),end="")
+                else:
+                    print("{}:{}]".format(operation.id, operation.cumulativeDelay))
+
+                index =index +1
+        else:
+            print(O + "TSN Flow number {} with deadline {} and startTime {} has the following operations: [".format(TF.id, TF.flowMaxDelay, startTime), end="")
+            index = 0
+            for operation in operations:
+                if (index != len(operations) - 1):
+                    if(index == 0 or index%2 == 1):
+                        print("{}:{}], [".format(operation.id, operation.cumulativeDelay), end="")
+                    elif(index%2 ==0):
+                        print("{}:{}:QD={}], [".format(operation.id, operation.cumulativeDelay,queuingDelays.__getitem__(int((index/2)-1))), end="")
+                else:
+                    print("{}:{}]".format(operation.id, operation.cumulativeDelay))
+
+                index = index + 1
+        print()
+    print(W)
+
+    tempList1 = orderCollidedFlowsBasedOnTheSoonestDeadline(G,listofCollisions.__getitem__(0).__getitem__(0),listofCollisions.__getitem__(0).__getitem__(4).__getitem__(0),scheduledFlows,deletedScheduledFlows,collisionList)
+    tempList2 = orderCollidedFlowsBasedOnTheEarliestArrivalTime(G,listofCollisions.__getitem__(0).__getitem__(0),listofCollisions.__getitem__(0).__getitem__(4).__getitem__(0),scheduledFlows,deletedScheduledFlows,collisionList)
+    txt1 = R+ "Collision list of flow number {} at location {}: ".format(listofCollisions.__getitem__(0).__getitem__(0).id,listofCollisions.__getitem__(0).__getitem__(4).__getitem__(0))
+
+    lasote = computeListOfCollisionsForAFlowInEgressPort(collisionList,listofCollisions.__getitem__(0).__getitem__(4).__getitem__(0),listofCollisions.__getitem__(0).__getitem__(0))
+    scheu = getSchedulingDetails(listofCollisions.__getitem__(0).__getitem__(0),scheduledFlows,deletedScheduledFlows)
+    operationsTest = map_ws(G,scheu.__getitem__(0),scheu.__getitem__(1),scheu.__getitem__(2))
+    opeID = convertEdgetoOperationID(listofCollisions.__getitem__(0).__getitem__(4).__getitem__(0))
+    print(opeID)
+    inddddddd = getOperationIndexByOperationID(operationsTest,opeID)
+    print("locationIndex: {}".format(inddddddd))
+    tempIndex =0
+    for TTF in lasote:
+        if tempIndex == 0:
+            txt1 = txt1 + "[{},".format(TTF.id)
+        elif tempIndex < (len(lasote) - 1):
+            txt1 = txt1 + "{},".format(TTF.id)
+        else:
+            txt1 = txt1 + "{}]".format(TTF.id)
+        tempIndex = tempIndex + 1
+    print(txt1)
+    print("Soonest Deadline:")
+    for iii in tempList1:
+        print("Flow Number {}: {}".format(iii.__getitem__(0).id,iii.__getitem__(1)))
+    print()
+    print()
+    print("Earlist Arrival Time:")
+    for iii in tempList2:
+        print("Flow Number {}: {}".format(iii.__getitem__(0).id, iii.__getitem__(1)))
+    print(W)
+    print()
+
+
     # print statements#
     ###################
     print('The total number of TSN flows: {}'.format(nbOfTSNFlows))
@@ -2506,7 +2605,7 @@ def deleteAttack(G, hostsList , firstKthPaths, timeSlotsAmount, nbOfTSNFlows, pF
     print()
     print()
     resolveMethod = 0               # 0 for dropping and 1 for delaying
-    selectAlgorithm = 3             # 0,1,2 or 3 check the method body to understand the meaning of this algorithms
+    selectAlgorithm = 2             # 0,1,2 or 3 check the method body to understand the meaning of this algorithms
     while(selectAlgorithm not in [0,1,2,3]):
         selectAlgorithm = input("Please, select an algorithm between 0-3")
         try:
@@ -2857,7 +2956,7 @@ def main():
                                         #                             1   = at the end
                                         #                             0.5 = after trying to schedule 50% of TSN flows
 
-    typeofSchedulingAlgorithm = 4       # The used scheduling algorithm (0 = SWTS
+    typeofSchedulingAlgorithm = 2       # The used scheduling algorithm (0 = SWTS
                                         #                                1 = SWOTS_ASAP
                                         #                                2 = SWOTS_ASAP_WS
                                         #                                3 = SWOTS_AEAP
