@@ -2895,6 +2895,70 @@ def testSecurityImpact(typeOfSecurityAttack, attackRate, attackStartTime, typeof
 
 
 
+def measureApproixmateTimeofConfederatedControllersDesgin(typeofSchedulingAlgorithm):
+    # Check the inputs #
+    ##########################################
+    expectedtypeofSchedulingAlgorithm = [0, 1, 2, 3, 4]
+
+    if typeofSchedulingAlgorithm not in expectedtypeofSchedulingAlgorithm:
+        sys.exit('Enter a valid number for the type of scheduling between 0 and 4')
+
+    ##########################################
+
+    # Setting the simulation parameters #
+    ##########################################
+    n = 20  # number of switches
+    hosts = 30  # number of hosts
+    nbOfTSNFlows = 550  # number of TSN flows
+    pFlow = 1  # the probability that a flow will arrive at each time unit
+    p = 0.3  # the probability of having an edge between any two nodes
+    k = 30  # the number of paths that will be chosen between each source and destination
+    timeSlotsAmount = 4  # how many time slots in the schedule --> the length of the schedule
+    TSNCountWeight = 1 / 3
+    bandwidthWeight = 1 / 3
+    hopCountWeight = 1 / 3
+    ##########################################
+
+    # Creating the graphs #
+    ##########################################
+    G = nx.erdos_renyi_graph(n, p)
+    for node in range(n):  # This for loop to remove any unconnected node
+        if (nx.degree(G, node) == 0):
+            G.remove_node(node)
+    ##########################################
+
+    # Draw the graph #
+    ##########################################
+    plt.subplot(121)
+    nx.draw(G, with_labels=True)
+    plt.subplot(122)
+    nx.draw(G, with_labels=True, pos=nx.circular_layout(G), nodecolor='r', edge_color='b')
+    plt.show()
+    ##########################################
+
+    # Filling the values randomly #
+    ##########################################
+    transmissionDelays, linkMeasurments, hostsList = rand(G, hosts, n)
+    nx.set_node_attributes(G, transmissionDelays)
+    nx.set_edge_attributes(G, linkMeasurments)
+    ##########################################
+
+    G = G.to_directed(False)
+
+    # pre-routing phase #
+    ##########################################
+
+    convertProcDelayToComulativeDelay(G,
+                                      1)  # after this statment procDelay = proc Delay of next hop + trans Delay of next hop + progation delay of the link
+    start = timer()
+    firstKthPaths = findKthPath(G, hostsList, k)  # The first kth paths between all the hosts (based on path delay)
+    end = timer()
+    preRoutingPhaseTime = end - start
+
+    convertProcDelayToComulativeDelay(G,
+                                      0)  # after this statment procDelay = proc Delay of next hop + propgation Delay of the link
+
+    ##########################################
 
 
 
