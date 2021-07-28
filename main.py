@@ -2844,7 +2844,7 @@ def testSecurityImpact(typeOfSecurityAttack, attackRate, attackStartTime, typeof
         ##########################################
 
 
-        # Creating the graphs #
+        # Creating the network graph #
         ##########################################
         G = nx.erdos_renyi_graph(n, p)
         for node in range(n):  # This for loop to remove any unconnected node
