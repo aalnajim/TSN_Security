@@ -2960,6 +2960,135 @@ def measureApproixmateTimeofConfederatedControllersDesgin(typeofSchedulingAlgori
 
     ##########################################
 
+    CLength = 0  # the schedule cycle length
+    timeSlotLength = 0  # the length of each time slot
+
+    # Setting the values:
+    timeSlotLength = computeTimeSlotLength(G, hostsList, firstKthPaths)
+    CLength = timeSlotsAmount * timeSlotLength
+    timeSlots = createTimeSlots(timeSlotsAmount)  # the list of time slots
+    flowsList = []  # list of all created TSN flows
+    scheduledFlows = []  # list of all scheduled TSN flows using SWOTS (As Early As Possible) with queueing delays allowed
+    counterTotal = 0  # count the total created flows (real and fake)
+    scheduledCounter = 0  # count the scheduled TSN flows (routed and scheduled) using SWOTS (As Early As Possible) with queueing delays allowed
+    totalRoutedCounter = 0  # count the total routed TSN flows
+    time = 0  # Track the arrival time of TSN flows
+    routingExecutionTimes = []  # a list of the execution times of the routing algorithm for all flows in microseconds [(1.3,True),(0.7,False)]
+    SchedulingExecutionTimes = []  # a list of the execution times of the SWOTS (As Early As Possible) algorithm for all flows in microseconds [(1.3,True),(0.7,False)]
+
+    while (True):
+        if counterTotal >= nbOfTSNFlows:  # if we reached the number of TSN flows, stop
+            break
+        changeLinksBandwidth(
+            G)  # change the link bandwidth randomly, in future it will be based on the best effort streams
+        x = random.random()
+        if (x <= pFlow):
+
+            s = 0
+            d = 0
+            while s == d:
+                s = random.choice(hostsList)
+                d = random.choice(hostsList)
+            tempTSNFlow = TSNFlow.TSNFlow(counterTotal, s,
+                                          d)  # generate a TSN flow from a randomly selected source to a randomly selected destination
+            flowsList.append(
+                (tempTSNFlow, time))  # add the generated TSN flow and the generation time to the TSN flows list
+            counterTotal = counterTotal + 1
+            tempScheduled = False
+            tempRoutingList = firstKthPaths
+            flag = 0
+            while (tempScheduled == False):
+                # Path-Selection phase #
+                ##########################################
+                start = timer()
+                tempRouted, candidatePaths = pathSelection(G, tempTSNFlow, tempRoutingList, TSNCountWeight,
+                                                           bandwidthWeight, hopCountWeight, flag)
+                end = timer()
+                routingExecutionTimes.append((((end - start) * 1000 * 1000), tempRouted))
+
+                ##########################################
+
+                if (tempRouted and flag == 0):
+                    totalRoutedCounter = totalRoutedCounter + 1
+                # elif (not (tempRouted)):  # This statement was else (which will prevent the method from repeatedly trying to schedule the flow using different paths)
+                else:
+                    break
+                flag = 1
+
+                for path in candidatePaths:
+                    if (path == tempTSNFlow.path):
+                        candidatePaths.remove(path)
+                tempRoutingList = candidatePaths
+
+                if (not tempScheduled):
+                    if (len(flowsList) == 0):
+                        FTT = time
+                    else:
+                        FTT = flowsList.__getitem__(0).__getitem__(1)
+
+                    # Scheduling Phase #
+                    ##########################################
+
+                    if (typeofSchedulingAlgorithm == 4):
+                        start = timer()
+                        tempScheduled = SWOTS_AEAP_WS(G, tempTSNFlow, scheduledFlows,
+                                                      CLength)
+                        end = timer()
+                    elif (typeofSchedulingAlgorithm == 3):
+                        start = timer()
+                        tempScheduled = SWOTS_AEAP(G, tempTSNFlow, scheduledFlows,
+                                                   CLength)
+                        end = timer()
+                    elif (typeofSchedulingAlgorithm == 2):
+                        start = timer()
+                        tempScheduled = SWOTS_ASAP_WS(G, tempTSNFlow, scheduledFlows,
+                                                      CLength, time, FTT)
+                        end = timer()
+                    elif (typeofSchedulingAlgorithm == 1):
+                        start = timer()
+                        tempScheduled = SWOTS_ASAP(G, tempTSNFlow, scheduledFlows,
+                                                   CLength, time, FTT)
+                        end = timer()
+                    elif (typeofSchedulingAlgorithm == 0):
+                        start = timer()
+                        tempScheduled = SWTS(G, tempTSNFlow, scheduledFlows,
+                                             CLength, timeSlots, time, FTT)
+                        end = timer()
+
+                    SchedulingExecutionTimes.append(
+                        (((end - start) * 1000 * 1000), tempScheduled))
+
+                    if (tempScheduled):
+                        scheduledCounter = scheduledCounter + 1
+                        for index in range(len(tempTSNFlow.path.nodes)):
+                            if (index == 0 or index > len(tempTSNFlow.path.nodes) - 3):
+                                continue
+                            G[tempTSNFlow.path.nodes.__getitem__(index)][
+                                tempTSNFlow.path.nodes.__getitem__(index + 1)][
+                                'nbOfTSN'] = \
+                                G[tempTSNFlow.path.nodes.__getitem__(index)][
+                                    tempTSNFlow.path.nodes.__getitem__(index + 1)][
+                                    'nbOfTSN'] + 1
+
+        time = time + random.randint(1, CLength + 1)
+
+
+    # print statements
+    print('The total number of TSN flows: {}'.format(nbOfTSNFlows))
+    print('nb of total routed flows: {}'.format(totalRoutedCounter))
+    if (typeofSchedulingAlgorithm == 0):
+        print('nb of scheduled flows using SWTS: {}'.format(scheduledCounter))
+    elif (typeofSchedulingAlgorithm == 1):
+        print('nb of scheduled flows using SWOTS_ASAP: {}'.format(scheduledCounter))
+    elif (typeofSchedulingAlgorithm == 2):
+        print('nb of scheduled flows using SWOTS_ASAP_WS: {}'.format(scheduledCounter))
+    elif (typeofSchedulingAlgorithm == 3):
+        print('nb of scheduled flows using SWOTS_AEAP: {}'.format(scheduledCounter))
+    elif (typeofSchedulingAlgorithm == 4):
+        print('nb of scheduled flows using SWOTS_AEAP_WS: {}'.format(scheduledCounter))
+
+    # return scheduledCounter/routedCounter
+
 
 
 
@@ -3028,8 +3157,13 @@ def main():
 
     ###########################################
 
-    testSecurityImpact(typeOfSecurityAttack, intensivityOfTheAttack, attackStartTime, typeofSchedulingAlgorithm
-                       )
+    # testSecurityImpact(typeOfSecurityAttack, intensivityOfTheAttack, attackStartTime, typeofSchedulingAlgorithm
+    #                    )
+    measureApproixmateTimeofConfederatedControllersDesgin(4)
+
+
+
+
 
 
     # total = 0
