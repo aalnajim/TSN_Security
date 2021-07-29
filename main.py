@@ -3138,12 +3138,12 @@ def main():
 
     #the security impact simulation parameters#
 
-    typeOfSecurityAttack = 3            # This parameter to choose the type of attack to be tested (0 -> insert attack at the end
+    typeOfSecurityAttack = 0            # This parameter to choose the type of attack to be tested (0 -> insert attack at the end
                                         #                                                           1 -> insert attack (randomly)
                                         #                                                           2 -> delete attack (from the end)
                                         #                                                           3 -> delete attack (random position)
 
-    intensivityOfTheAttack = 0.5        # How strong is the attack (where 0 is none and 1 is all)
+    intensivityOfTheAttack = 0        # How strong is the attack (where 0 is none and 1 is all)
 
     attackStartTime = 0.5               # when the attack will start (0   = at the beginning
                                         #                             1   = at the end
@@ -3157,9 +3157,9 @@ def main():
 
     ###########################################
 
-    # testSecurityImpact(typeOfSecurityAttack, intensivityOfTheAttack, attackStartTime, typeofSchedulingAlgorithm
-    #                    )
-    measureApproixmateTimeofConfederatedControllersDesgin(4)
+    testSecurityImpact(typeOfSecurityAttack, intensivityOfTheAttack, attackStartTime, typeofSchedulingAlgorithm
+                       )
+    #measureApproixmateTimeofConfederatedControllersDesgin(4)
 
 
 
