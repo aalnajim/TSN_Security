@@ -30,8 +30,8 @@ P  = '\033[35m' # purple
 def rand(G,hosts, n):
     transmissionDelays = {}
     for i in G.nodes:
-        tranmissionDelay = random.randint(1,90)
-        transmissionDelays[i] = {'transmissionDelay':tranmissionDelay}
+        transmissionDelay = random.randint(1,90)
+        transmissionDelays[i] = {'transmissionDelay':transmissionDelay}
 
     linkMeasurments = {}
     for i in nx.edges(G,G.nodes):
@@ -1554,6 +1554,94 @@ def dropTSNFlowFromCollisionLists(TSNFlow, listofCollisions, collisionList, coll
     return newCollisionPerEgressPortCounter
 
 
+
+def dropTSNFlowFromCollisionLocation(TSNFlow, listofCollisions, collisionList, collisionPerEgressPortCounter, collisionLocation):
+    newCollisionPerEgressPortCounter = collisionPerEgressPortCounter
+    listOfItemsIndeces = []
+    listItemIndex = 0
+    flag = False
+    for listItem in listofCollisions:
+        if((listItem.__getitem__(0) == TSNFlow) and (collisionLocation in listItem.__getitem__(4))):
+            #listOfItemsIndeces.append(listItemIndex)
+            flag = True
+            distinctCounter = listItem.__getitem__(1)
+            totalCounter = listItem.__getitem__(2)
+            listOfLocationIndeces = [index for index in range(len(listItem.__getitem__(4))) if listItem.__getitem__(4).__getitem__(index)==collisionLocation]
+            for tempIndex in range(len(listOfLocationIndeces)):
+                tempRemovedTSNFlow = listItem.__getitem__(3).pop(listOfLocationIndeces.__getitem__(tempIndex)-tempIndex)
+                del(listItem.__getitem__(4))[listOfLocationIndeces.__getitem__(tempIndex)-tempIndex]
+                totalCounter = totalCounter - 1
+                if(tempRemovedTSNFlow not in listItem.__getitem__(3)):
+                    distinctCounter = distinctCounter - 1
+
+            if(distinctCounter == 0):
+                listOfItemsIndeces.append(listItemIndex)
+
+
+
+
+        elif(TSNFlow in listItem.__getitem__(3) and collisionLocation in listItem.__getitem__(4)):
+            distinctCounter = listItem.__getitem__(1)
+            totalCounter = listItem.__getitem__(2)
+            listOfLocationIndeces = [index for index in range(len(listItem.__getitem__(4))) if
+                                     listItem.__getitem__(4).__getitem__(index) == collisionLocation]
+
+            for tempIndex in listOfLocationIndeces:
+                if(listItem.__getitem__(3).__getitem__(tempIndex)==TSNFlow):
+                    flag = True
+                    tempRemovedTSNFlow = listItem.__getitem__(3).pop(tempIndex)
+                    del (listItem.__getitem__(4))[tempIndex]
+                    totalCounter = totalCounter - 1
+                    if (tempRemovedTSNFlow not in listItem.__getitem__(3)):
+                        distinctCounter = distinctCounter - 1
+                    break
+            if (distinctCounter == 0):
+                listOfItemsIndeces.append(listItemIndex)
+        if(flag):
+            tempTSNFlow = listItem.__getitem__(0)
+            tempTSNFlows = listItem.__getitem__(3)
+            tempLocations = listItem.__getitem__(4)
+            if len(listItem) > 5:
+                tempDelays = listItem.__getitem__(5)
+                listofCollisions[listItemIndex] = (tempTSNFlow, distinctCounter, totalCounter,
+                                                   tempTSNFlows, tempLocations, tempDelays)
+            else:
+                listofCollisions[listItemIndex] = (tempTSNFlow, distinctCounter, totalCounter,
+                                                   tempTSNFlows, tempLocations)
+            flag = False
+
+
+        listItemIndex = listItemIndex + 1
+
+
+    for i in range(len(listOfItemsIndeces)):
+        del listofCollisions[listOfItemsIndeces.__getitem__(i)-i]
+
+
+
+
+    listOfItemsIndeces = []
+    listItemIndex = 0
+    for listItem in collisionList:
+        if(((listItem.__getitem__(0) == TSNFlow) or (listItem.__getitem__(1) == TSNFlow))and collisionLocation in listItem.__getitem__(2)):
+            newCollisionPerEgressPortCounter = newCollisionPerEgressPortCounter - 1
+            tempLocationIndex = listItem.__getitem__(2).index(collisionLocation)
+            del listItem.__getitem__(2)[tempLocationIndex]
+            if(len(listItem.__getitem__(2))==0):
+                listOfItemsIndeces.append(listItemIndex)
+        listItemIndex = listItemIndex + 1
+    for i in range(len(listOfItemsIndeces)):
+        del collisionList[listOfItemsIndeces.__getitem__(i) - i]
+
+
+    return newCollisionPerEgressPortCounter
+
+
+
+
+
+
+
 def calculateCollisionsStatisticsForAFlow(firstTSNFlow,secondTSNFlow, collisionLocation, listofCollisions):
     nbOfCollisions, nbOfCollidedFlows, nbOfCollisionsWithTheSecondTSNFlow, nbOfDistinctCollidedLocations, nbOfCollisionsInTheLocation = 0, 0, 0, 0, 0
     for deletedItem in listofCollisions:
@@ -1595,7 +1683,7 @@ def orderCollidedFlowsBasedOnNBOfCollisions(TSNFlow, collisionLocation, collisio
 
     listOfCollidedPairs = []      # This list contains a pair of collided flows from 'collidedFlowList' in addition to 'TSNFlow'
                                   # So, if 'TSNFlow' has 3 flows that collided with it at 'collisionLocation', which are 'collidedFlowList' = [TSNFlow2,TSNFlow3,TSNFlow4]
-                                  # This list 'listOfCollidedPairs' will be in the form: [(TSNFlow,TSNFlow2,nbOfCollisionsBetweenThem,True),(TSNFlow,TSNFlow2,nbOfCol,True),(TSNFlow,TSNFlow3,nbOfCol,True),(TSNFlow2,TSNFlow3,nbOfColl,True),(TSNFlow2,TSNFlow4,nbOfColl,True),(TSNFlow3,TSNFlow4,nbOfColl,False)]
+                                  # This list 'listOfCollidedPairs' will be in the form: [(TSNFlow,TSNFlow2,nbOfCollisionsBetweenThem,True),(TSNFlow,TSNFlow3,nbOfCol,True),(TSNFlow,TSNFlow4,nbOfCol,True),(TSNFlow2,TSNFlow3,nbOfColl,True),(TSNFlow2,TSNFlow4,nbOfColl,True),(TSNFlow3,TSNFlow4,nbOfColl,False)]
 
     listOfStatisticsPerFlows = [] # This list contains the following statistics:
                                   # (1) nbOfCollisions, (2) nbOfCollidedFlows, (3) nbOfDistinctCollidedLocations, (4) nbOfCollisionsInTheLocation
@@ -1649,7 +1737,6 @@ def orderCollidedFlowsBasedOnNBOfCollisions(TSNFlow, collisionLocation, collisio
 
 
 
-    
 
 
 def dropBasedOnTheHighestNBOfCollisions2(listofCollisions, collisionList, collisionPerEgressPortCounter):
@@ -2001,14 +2088,65 @@ def collisionResolveByDropping(G,scheduledFlows, deletedScheduledFlows,listofCol
         return listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows
 
 
-def delayBasedOnTheHighestNBOfCollisions(listofCollisions, collisionList, collisionPerEgressPortCounter):
-    pass
+def delayBasedOnTheHighestNBOfCollisions(G,scheduledFlows, deletedScheduledFlows,listofCollisions, collisionList,collisionPerEgressPortCounter):
+    listofCollisionsV2, collisionListV2 = copyCollisionlists(listofCollisions, collisionList)
+    newCollisionPerEgressPortCounter = collisionPerEgressPortCounter
+    listOfDropedFlows = []
+    listOfOrderKeys = [1,2,0,3]         # the collided flows will be descendingly ordered (from high to low) based on the keys in this list from left to right, where:
+                                        # 0 --> nbOfCollisions (total number of collisions) a flow may collide more than once with another flow in different locations. This counter will count them all
+                                        # 1 --> nbOfCollidedFlows (number of collided flows) a flow may collide more than once in different locations with another flow but it will be counted as one in this counter
+                                        # 2 --> nbOfDistinctCollidedLocations (how many different locations a flow will have a collision at)
+                                        # 3 --> nbOfCollisionsInTheLocation (how many collisions a flow will have in the current location)
+                                        # Based on this list a flow will be drop
+                                        # The default order is [1,2,0,3], which means if a collision occur, we will drop the flow with the highest 'nbOfCollidedFlows', if we have two flows with the same 'nbOfCollidedFlows',
+                                        #               we will drop the one with the highest 'nbOfDistinctCollidedLocations', and so on.
 
+    if(len(deletedScheduledFlows) != 0):
+        if(len(deletedScheduledFlows.__getitem__(0))!=3):
+            newDeletedScheduledFlows = [(deletedItem.__getitem__(0),deletedItem.__getitem__(1),[0 for _ in range(len(deletedItem.__getitem__(0).path.nodes) - 2)]) for deletedItem in deletedScheduledFlows]
+        else:
+            newDeletedScheduledFlows = deletedScheduledFlows.copy()
+    if (len(scheduledFlows) != 0):
+        if (len(scheduledFlows.__getitem__(0)) != 3):
+            newScheduledFlows = [(scheduledItem.__getitem__(0), scheduledItem.__getitem__(1),
+                                         [0 for _ in range(len(scheduledItem.__getitem__(0).path.nodes) - 2)]) for
+                                        scheduledItem in scheduledFlows]
+        else:
+            newScheduledFlows = scheduledFlows.copy()
+
+
+
+    for listItem in listofCollisions:
+        flag = False
+        if (listItem.__getitem__(0) in listOfDropedFlows):
+            continue
+        for collisionLocation in listItem.__getitem__(4):
+            orderedListOfStatisticsPerFlows, orderedListOfCollidedPairs = orderCollidedFlowsBasedOnNBOfCollisions(
+                listItem.__getitem__(0), collisionLocation, collisionListV2, listofCollisionsV2, listOfOrderKeys)
+            startCondition = len(orderedListOfStatisticsPerFlows) - 1
+            for i in range(startCondition,-1,-1):
+                if (flag and i !=0):
+                    orderedListOfStatisticsPerFlows, orderedListOfCollidedPairs = orderCollidedFlowsBasedOnNBOfCollisions(
+                    listItem.__getitem__(0), collisionLocation, collisionListV2, listofCollisionsV2, listOfOrderKeys)
+                    flag = False
+                tempTSNFlow = orderedListOfStatisticsPerFlows.__getitem__(0).__getitem__(0)
+                # if (tempTSNFlow == listItem.__getitem__(0)):
+                #     flag = True
+                listOfDropedFlows.append(tempTSNFlow)
+                newCollisionPerEgressPortCounter = dropTSNFlowFromCollisionLists(
+                    tempTSNFlow, listofCollisionsV2,
+                    collisionListV2, newCollisionPerEgressPortCounter)
+                if (flag and i ):
+                    break
+            if (flag):
+                break
+
+    return listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows
 
 def collisionResolveByDelaying(G,scheduledFlows, deletedScheduledFlows,listofCollisions, collisionList,collisionPerEgressPortCounter, selectAlgorithm):
     if (selectAlgorithm == 0):
         listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows = delayBasedOnTheHighestNBOfCollisions(
-            listofCollisions, collisionList, collisionPerEgressPortCounter)
+            G,scheduledFlows, deletedScheduledFlows,listofCollisions, collisionList,collisionPerEgressPortCounter)
         return listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows
 
 
@@ -2320,8 +2458,8 @@ def deleteAttack(G, hostsList , firstKthPaths, timeSlotsAmount, nbOfTSNFlows, pF
     routingExecutionTimes = []  # a list of the execution times of the routing algorithm for all flows in microseconds [(1.3,True),(0.7,False)]
     SchedulingExecutionTimes = []  # a list of the execution times of the SWOTS (As Early As Possible) algorithm for all flows in microseconds [(1.3,True),(0.7,False)]
     listofCollisions = [] # a list of all collided flows resulted from this attack in the form of
-                          # [(TSNFlowID Integer, distinctCollisionCounterPerFlow Integer,
-                          #   CollisionCounterPerHop Integer, ListOfCollidedTSNFlows List of Integers,
+                          # [(TSNFlow, distinctCollisionCounterPerFlow Integer,
+                          #   CollisionCounterPerHop Integer, ListOfCollidedTSNFlows List of TSNFlow objects,
                           #   ListOfCollidedLocations List of String), (.....)]
 
     while (True):
@@ -2469,104 +2607,106 @@ def deleteAttack(G, hostsList , firstKthPaths, timeSlotsAmount, nbOfTSNFlows, pF
         # (2) a counter of all distinct collisions in Egress Ports,i.e., the summation of "len(listOfCollisionsLocations)" for all elements in "collisionList"
 
 
-    for schedulItem in scheduledFlows:
-        TF = schedulItem.__getitem__(0)
-        startTime = schedulItem.__getitem__(1)
-        if(len(schedulItem)>2):
-            queuingDelays = schedulItem.__getitem__(2)
-            operations = map_ws(G,TF,startTime,queuingDelays)
-        else:
-            operations = map(G, TF, startTime)
-        if (len(schedulItem) == 2):
-            print(O+"TSN Flow number {} with deadline {} and startTime {} has the following operations: [".format(TF.id,TF.flowMaxDelay,startTime),end="")
-            index = 0
-            for operation in operations:
-                if(index != len(operations)-1):
-                    print("{}:{}], [".format(operation.id,operation.cumulativeDelay),end="")
-                else:
-                    print("{}:{}]".format(operation.id, operation.cumulativeDelay))
 
-                index =index +1
-        else:
-            print(O + "TSN Flow number {} with deadline {} and startTime {} has the following operations: [".format(TF.id,TF.flowMaxDelay,startTime), end="")
-            index = 0
-            for operation in operations:
-                if (index != len(operations) - 1):
-                    if(index == 0 or index%2 == 1):
-                        print("{}:{}], [".format(operation.id, operation.cumulativeDelay), end="")
-                    elif(index%2 ==0):
-                        print("{}:{}:QD={}], [".format(operation.id, operation.cumulativeDelay,queuingDelays.__getitem__(int((index/2)-1))), end="")
-                else:
-                    print("{}:{}]".format(operation.id, operation.cumulativeDelay))
 
-                index = index + 1
-        print()
-
-    for schedulItem in deletedScheduledFlows:
-        TF = schedulItem.__getitem__(0)
-        startTime = schedulItem.__getitem__(1)
-        if(len(schedulItem)>2):
-            queuingDelays = schedulItem.__getitem__(2)
-            operations = map_ws(G,TF,startTime,queuingDelays)
-        else:
-            operations = map(G, TF, startTime)
-        if (len(schedulItem) == 2):
-            print(O+"TSN Flow number {} with deadline {} and startTime {} has the following operations: [".format(TF.id, TF.flowMaxDelay,startTime),end="")
-            index = 0
-            for operation in operations:
-                if(index != len(operations)-1):
-                    print("{}:{}], [".format(operation.id,operation.cumulativeDelay),end="")
-                else:
-                    print("{}:{}]".format(operation.id, operation.cumulativeDelay))
-
-                index =index +1
-        else:
-            print(O + "TSN Flow number {} with deadline {} and startTime {} has the following operations: [".format(TF.id, TF.flowMaxDelay, startTime), end="")
-            index = 0
-            for operation in operations:
-                if (index != len(operations) - 1):
-                    if(index == 0 or index%2 == 1):
-                        print("{}:{}], [".format(operation.id, operation.cumulativeDelay), end="")
-                    elif(index%2 ==0):
-                        print("{}:{}:QD={}], [".format(operation.id, operation.cumulativeDelay,queuingDelays.__getitem__(int((index/2)-1))), end="")
-                else:
-                    print("{}:{}]".format(operation.id, operation.cumulativeDelay))
-
-                index = index + 1
-        print()
-    print(W)
-
-    tempList1 = orderCollidedFlowsBasedOnTheSoonestDeadline(G,listofCollisions.__getitem__(0).__getitem__(0),listofCollisions.__getitem__(0).__getitem__(4).__getitem__(0),scheduledFlows,deletedScheduledFlows,collisionList)
-    tempList2 = orderCollidedFlowsBasedOnTheEarliestArrivalTime(G,listofCollisions.__getitem__(0).__getitem__(0),listofCollisions.__getitem__(0).__getitem__(4).__getitem__(0),scheduledFlows,deletedScheduledFlows,collisionList)
-    txt1 = R+ "Collision list of flow number {} at location {}: ".format(listofCollisions.__getitem__(0).__getitem__(0).id,listofCollisions.__getitem__(0).__getitem__(4).__getitem__(0))
-
-    lasote = computeListOfCollisionsForAFlowInEgressPort(collisionList,listofCollisions.__getitem__(0).__getitem__(4).__getitem__(0),listofCollisions.__getitem__(0).__getitem__(0))
-    scheu = getSchedulingDetails(listofCollisions.__getitem__(0).__getitem__(0),scheduledFlows,deletedScheduledFlows)
-    operationsTest = map_ws(G,scheu.__getitem__(0),scheu.__getitem__(1),scheu.__getitem__(2))
-    opeID = convertEdgetoOperationID(listofCollisions.__getitem__(0).__getitem__(4).__getitem__(0))
-    print(opeID)
-    inddddddd = getOperationIndexByOperationID(operationsTest,opeID)
-    print("locationIndex: {}".format(inddddddd))
-    tempIndex =0
-    for TTF in lasote:
-        if tempIndex == 0:
-            txt1 = txt1 + "[{},".format(TTF.id)
-        elif tempIndex < (len(lasote) - 1):
-            txt1 = txt1 + "{},".format(TTF.id)
-        else:
-            txt1 = txt1 + "{}]".format(TTF.id)
-        tempIndex = tempIndex + 1
-    print(txt1)
-    print("Soonest Deadline:")
-    for iii in tempList1:
-        print("Flow Number {}: {}".format(iii.__getitem__(0).id,iii.__getitem__(1)))
-    print()
-    print()
-    print("Earlist Arrival Time:")
-    for iii in tempList2:
-        print("Flow Number {}: {}".format(iii.__getitem__(0).id, iii.__getitem__(1)))
-    print(W)
-    print()
+    # for schedulItem in scheduledFlows:
+    #     TF = schedulItem.__getitem__(0)
+    #     startTime = schedulItem.__getitem__(1)
+    #     if(len(schedulItem)>2):
+    #         queuingDelays = schedulItem.__getitem__(2)
+    #         operations = map_ws(G,TF,startTime,queuingDelays)
+    #     else:
+    #         operations = map(G, TF, startTime)
+    #     if (len(schedulItem) == 2):
+    #         print(O+"TSN Flow number {} with deadline {} and startTime {} has the following operations: [".format(TF.id,TF.flowMaxDelay,startTime),end="")
+    #         index = 0
+    #         for operation in operations:
+    #             if(index != len(operations)-1):
+    #                 print("{}:{}], [".format(operation.id,operation.cumulativeDelay),end="")
+    #             else:
+    #                 print("{}:{}]".format(operation.id, operation.cumulativeDelay))
+    #
+    #             index =index +1
+    #     else:
+    #         print(O + "TSN Flow number {} with deadline {} and startTime {} has the following operations: [".format(TF.id,TF.flowMaxDelay,startTime), end="")
+    #         index = 0
+    #         for operation in operations:
+    #             if (index != len(operations) - 1):
+    #                 if(index == 0 or index%2 == 1):
+    #                     print("{}:{}], [".format(operation.id, operation.cumulativeDelay), end="")
+    #                 elif(index%2 ==0):
+    #                     print("{}:{}:QD={}], [".format(operation.id, operation.cumulativeDelay,queuingDelays.__getitem__(int((index/2)-1))), end="")
+    #             else:
+    #                 print("{}:{}]".format(operation.id, operation.cumulativeDelay))
+    #
+    #             index = index + 1
+    #     print()
+    #
+    # for schedulItem in deletedScheduledFlows:
+    #     TF = schedulItem.__getitem__(0)
+    #     startTime = schedulItem.__getitem__(1)
+    #     if(len(schedulItem)>2):
+    #         queuingDelays = schedulItem.__getitem__(2)
+    #         operations = map_ws(G,TF,startTime,queuingDelays)
+    #     else:
+    #         operations = map(G, TF, startTime)
+    #     if (len(schedulItem) == 2):
+    #         print(O+"TSN Flow number {} with deadline {} and startTime {} has the following operations: [".format(TF.id, TF.flowMaxDelay,startTime),end="")
+    #         index = 0
+    #         for operation in operations:
+    #             if(index != len(operations)-1):
+    #                 print("{}:{}], [".format(operation.id,operation.cumulativeDelay),end="")
+    #             else:
+    #                 print("{}:{}]".format(operation.id, operation.cumulativeDelay))
+    #
+    #             index =index +1
+    #     else:
+    #         print(O + "TSN Flow number {} with deadline {} and startTime {} has the following operations: [".format(TF.id, TF.flowMaxDelay, startTime), end="")
+    #         index = 0
+    #         for operation in operations:
+    #             if (index != len(operations) - 1):
+    #                 if(index == 0 or index%2 == 1):
+    #                     print("{}:{}], [".format(operation.id, operation.cumulativeDelay), end="")
+    #                 elif(index%2 ==0):
+    #                     print("{}:{}:QD={}], [".format(operation.id, operation.cumulativeDelay,queuingDelays.__getitem__(int((index/2)-1))), end="")
+    #             else:
+    #                 print("{}:{}]".format(operation.id, operation.cumulativeDelay))
+    #
+    #             index = index + 1
+    #     print()
+    # print(W)
+    #
+    # tempList1 = orderCollidedFlowsBasedOnTheSoonestDeadline(G,listofCollisions.__getitem__(0).__getitem__(0),listofCollisions.__getitem__(0).__getitem__(4).__getitem__(0),scheduledFlows,deletedScheduledFlows,collisionList)
+    # tempList2 = orderCollidedFlowsBasedOnTheEarliestArrivalTime(G,listofCollisions.__getitem__(0).__getitem__(0),listofCollisions.__getitem__(0).__getitem__(4).__getitem__(0),scheduledFlows,deletedScheduledFlows,collisionList)
+    # txt1 = R+ "Collision list of flow number {} at location {}: ".format(listofCollisions.__getitem__(0).__getitem__(0).id,listofCollisions.__getitem__(0).__getitem__(4).__getitem__(0))
+    #
+    # lasote = computeListOfCollisionsForAFlowInEgressPort(collisionList,listofCollisions.__getitem__(0).__getitem__(4).__getitem__(0),listofCollisions.__getitem__(0).__getitem__(0))
+    # scheu = getSchedulingDetails(listofCollisions.__getitem__(0).__getitem__(0),scheduledFlows,deletedScheduledFlows)
+    # operationsTest = map_ws(G,scheu.__getitem__(0),scheu.__getitem__(1),scheu.__getitem__(2))
+    # opeID = convertEdgetoOperationID(listofCollisions.__getitem__(0).__getitem__(4).__getitem__(0))
+    # print(opeID)
+    # inddddddd = getOperationIndexByOperationID(operationsTest,opeID)
+    # print("locationIndex: {}".format(inddddddd))
+    # tempIndex =0
+    # for TTF in lasote:
+    #     if tempIndex == 0:
+    #         txt1 = txt1 + "[{},".format(TTF.id)
+    #     elif tempIndex < (len(lasote) - 1):
+    #         txt1 = txt1 + "{},".format(TTF.id)
+    #     else:
+    #         txt1 = txt1 + "{}]".format(TTF.id)
+    #     tempIndex = tempIndex + 1
+    # print(txt1)
+    # print("Soonest Deadline:")
+    # for iii in tempList1:
+    #     print("Flow Number {}: {}".format(iii.__getitem__(0).id,iii.__getitem__(1)))
+    # print()
+    # print()
+    # print("Earlist Arrival Time:")
+    # for iii in tempList2:
+    #     print("Flow Number {}: {}".format(iii.__getitem__(0).id, iii.__getitem__(1)))
+    # print(W)
+    # print()
 
 
     # print statements#
@@ -3145,12 +3285,12 @@ def main():
 
     #the security impact simulation parameters#
 
-    typeOfSecurityAttack = 0            # This parameter to choose the type of attack to be tested (0 -> insert attack at the end
+    typeOfSecurityAttack = 2            # This parameter to choose the type of attack to be tested (0 -> insert attack at the end
                                         #                                                           1 -> insert attack (randomly)
                                         #                                                           2 -> delete attack (from the end)
                                         #                                                           3 -> delete attack (random position)
 
-    intensivityOfTheAttack = 0        # How strong is the attack (where 0 is none and 1 is all)
+    intensivityOfTheAttack = 0.2        # How strong is the attack (where 0 is none and 1 is all)
 
     attackStartTime = 0.5               # when the attack will start (0   = at the beginning
                                         #                             1   = at the end
