@@ -2114,13 +2114,14 @@ def delayBasedOnTheHighestNBOfCollisions(G,scheduledFlows, deletedScheduledFlows
         else:
             newScheduledFlows = scheduledFlows.copy()
 
-
-
     for listItem in listofCollisions:
         flag = False
         if (listItem.__getitem__(0) in listOfDropedFlows):
             continue
+        listOfResolvedLocations = []
         for collisionLocation in listItem.__getitem__(4):
+            if collisionLocation in listOfResolvedLocations:
+                continue
             orderedListOfStatisticsPerFlows, orderedListOfCollidedPairs = orderCollidedFlowsBasedOnNBOfCollisions(
                 listItem.__getitem__(0), collisionLocation, collisionListV2, listofCollisionsV2, listOfOrderKeys)
             startCondition = len(orderedListOfStatisticsPerFlows) - 1
