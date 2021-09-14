@@ -2170,11 +2170,16 @@ def delayBasedOnTheHighestNBOfCollisions(G,scheduledFlows, deletedScheduledFlows
     #initialize the dictionary of the latest resolved collision operation
     dict = {}
     for listItem in listofCollisions:
-        dict[listItem.__getitem__(0).id] = 2
+        tempScheduledItem = getSchedulingDetails(listItem.__getitem__(0), newScheduledFlows,newDeletedScheduledFlows)
+        tempScheduledOperations = map_ws(G,tempScheduledItem.__getitem__(0),tempScheduledItem.__getitem__(1),tempScheduledItem.__getitem__(2))
+        firstCollidedLocation = listItem.__getitem__(4).__getitem__(0)
+        firstCollidedOperationID = convertEdgetoOperationID(firstCollidedLocation)
+        firstCollidedOperationIndex = getOperationIndexByOperationID(tempScheduledOperations,firstCollidedOperationID)
+        dict[listItem.__getitem__(0).id] = firstCollidedOperationIndex
 
     for listItem in listofCollisions:
         #flag = False
-        if (listItem.__getitem__(0) in listOfDropedFlows or listItem.__getitem__(0) not in listofCollisionsV2):
+        if (listItem.__getitem__(0) in listOfDropedFlows or listItem not in listofCollisionsV2):
             continue
         #listOfResolvedLocations = []
 
@@ -2253,7 +2258,6 @@ def delayBasedOnTheHighestNBOfCollisions(G,scheduledFlows, deletedScheduledFlows
 
                 operationID = convertEdgetoOperationID(collisionLocation)
                 exitFlag = False
-
                 while(not exitFlag):
                     isAdjusted = False
                     firstScheduledFlowOperations = map_ws(G, firstScheduledFlow, firstScheduledFlowStartTime,
@@ -2261,16 +2265,18 @@ def delayBasedOnTheHighestNBOfCollisions(G,scheduledFlows, deletedScheduledFlows
                     firstScheduledFLowCollidedOperationIndex = getOperationIndexByOperationID(
                         firstScheduledFlowOperations, operationID)
                     firstScheduledFlowQueuingIndex = int((firstScheduledFLowCollidedOperationIndex / 2) - 1)
-                    for scheduledItem in newScheduledFlows:
-                        if((scheduledItem.get__item__(0) in listOfDropedFlows) or (scheduledItem.get__item__(0) in orderedListOfStatisticsPerFlows and orderedListOfStatisticsPerFlows.index(scheduledItem.__getitem__(0)) < i)):
+                    for scheduledItem2 in newScheduledFlows:
+                        if((scheduledItem2.__getitem__(0) in listOfDropedFlows) or (scheduledItem2.__getitem__(0) in orderedListOfStatisticsPerFlows and orderedListOfStatisticsPerFlows.index(scheduledItem2.__getitem__(0)) <= i)):
                             continue
                         ######################################################################################
-                        secondScheduledFlow = scheduledItem.__getitem__(0)
-                        secondScheduledFlowStartTime = scheduledItem.__getitem__(1)
-                        secondScheduledFlowQueuingDelays = scheduledItem.__getitem__(2)
+                        secondScheduledFlow = scheduledItem2.__getitem__(0)
+                        secondScheduledFlowStartTime = scheduledItem2.__getitem__(1)
+                        secondScheduledFlowQueuingDelays = scheduledItem2.__getitem__(2)
                         secondScheduledFlowOperations = map_ws(G, secondScheduledFlow, secondScheduledFlowStartTime,
                                                                secondScheduledFlowQueuingDelays)
-                        if(operationID in secondScheduledFlowOperations):
+                        secondScheduledFLowCollidedOperationIndex = getOperationIndexByOperationID(
+                            secondScheduledFlowOperations, operationID)
+                        if(secondScheduledFLowCollidedOperationIndex != -1):
                             secondScheduledFLowCollidedOperationIndex = getOperationIndexByOperationID(
                                 secondScheduledFlowOperations, operationID)
                             secondScheduledFlowQueuingIndex = int((secondScheduledFLowCollidedOperationIndex / 2) - 1)
@@ -2308,7 +2314,7 @@ def delayBasedOnTheHighestNBOfCollisions(G,scheduledFlows, deletedScheduledFlows
                         continue
 
                     for deletedItem in newDeletedScheduledFlows:
-                        if ((deletedItem.get__item__(0) in listOfDropedFlows) or (deletedItem.get__item__(0) in orderedListOfStatisticsPerFlows and orderedListOfStatisticsPerFlows.index(deletedItem.__getitem__(0)) < i)):
+                        if ((deletedItem.__getitem__(0) in listOfDropedFlows) or (deletedItem.__getitem__(0) in orderedListOfStatisticsPerFlows and orderedListOfStatisticsPerFlows.index(deletedItem.__getitem__(0)) < i)):
                             continue
 
                         secondScheduledFlow = deletedItem.__getitem__(0)
@@ -2347,8 +2353,14 @@ def delayBasedOnTheHighestNBOfCollisions(G,scheduledFlows, deletedScheduledFlows
                         if(dict[firstScheduledFlow.id] == firstScheduledFLowCollidedOperationIndex):
                             if(dict[firstScheduledFlow.id] < len(firstScheduledFlowOperations) - 2):
                                 dict[firstScheduledFlow.id] = dict[firstScheduledFlow.id] + 2
+                                newCollisionPerEgressPortCounter = dropTSNFlowFromCollisionLocation(firstScheduledFlow,listofCollisionsV2,collisionListV2,newCollisionPerEgressPortCounter,collisionLocation)
+                                exitFlag = True
                             else:
-                                newCollisionPerEgressPortCounter = dropTSNFlowFromCollisionLists(tempTSNFlow,listofCollisionsV2,collisionListV2,newCollisionPerEgressPortCounter)
+                                newCollisionPerEgressPortCounter = dropTSNFlowFromCollisionLists(firstScheduledFlow,listofCollisionsV2,collisionListV2,newCollisionPerEgressPortCounter)
+                                exitFlag = True
+                        else:
+                            exitFlag = True
+
 
     return listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows
 
@@ -2372,7 +2384,8 @@ def collisionResolve(G,scheduledFlows, deletedScheduledFlows,listofCollisions, c
         listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows = collisionResolveByDropping(G,scheduledFlows, deletedScheduledFlows,listofCollisions, collisionList, collisionPerEgressPortCounter, selectAlgorithm)
         return listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows
     else:
-        collisionResolveByDelaying(G,scheduledFlows, deletedScheduledFlows,listofCollisions, collisionList,collisionPerEgressPortCounter, selectAlgorithm, CLength)
+        listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows = collisionResolveByDelaying(G,scheduledFlows, deletedScheduledFlows,listofCollisions, collisionList,collisionPerEgressPortCounter, selectAlgorithm, CLength)
+        return listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows
 
 
 def copyCollisionlists(listofCollisions, collisionList):
@@ -2960,8 +2973,8 @@ def deleteAttack(G, hostsList , firstKthPaths, timeSlotsAmount, nbOfTSNFlows, pF
     displayCollisionList(collisionList, collisionPerEgressPortCounter)
     print()
     print()
-    resolveMethod = 0               # 0 for dropping and 1 for delaying
-    selectAlgorithm = 2             # 0,1,2 or 3 check the method body to understand the meaning of this algorithms
+    resolveMethod = 1               # 0 for dropping and 1 for delaying
+    selectAlgorithm = 0             # 0,1,2 or 3 check the method body to understand the meaning of this algorithms
     while(selectAlgorithm not in [0,1,2,3]):
         selectAlgorithm = input("Please, select an algorithm between 0-3")
         try:
@@ -2998,7 +3011,7 @@ def deleteAttack(G, hostsList , firstKthPaths, timeSlotsAmount, nbOfTSNFlows, pF
     print()
     print()
     print("-----------------------------------------------------------")
-    print("|    The list of droped flows based on nb of collisions    |")
+    print("|    The list of dropped flows based on nb of collisions   |")
     print("-----------------------------------------------------------")
     print()
     numberCounter = 1
