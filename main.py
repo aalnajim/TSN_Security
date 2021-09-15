@@ -2142,18 +2142,19 @@ def adjustQueuingDelay(flowQueuingDelayList,collisionLocationQueuingDelayIndex,a
             if(len(flowQueuingDelayList)-1 > collisionLocationQueuingDelayIndex):
                 flowQueuingDelayList[collisionLocationQueuingDelayIndex+1] = flowQueuingDelayList[collisionLocationQueuingDelayIndex+1] + tempAdjustment
 
-def delayBasedOnTheHighestNBOfCollisions(G,scheduledFlows, deletedScheduledFlows,listofCollisions, collisionList,collisionPerEgressPortCounter, CLength):
+def delayBasedOnTheHighestNBOfCollisions(G,scheduledFlows, deletedScheduledFlows,listofCollisions, collisionList,collisionPerEgressPortCounter, selectAlgorithm, CLength):
     listofCollisionsV2, collisionListV2 = copyCollisionlists(listofCollisions, collisionList)
     newCollisionPerEgressPortCounter = collisionPerEgressPortCounter
     listOfDropedFlows = []
-    listOfOrderKeys = [1,2,0,3]         # the collided flows will be descendingly ordered (from high to low) based on the keys in this list from left to right, where:
-                                        # 0 --> nbOfCollisions (total number of collisions) a flow may collide more than once with another flow in different locations. This counter will count them all
-                                        # 1 --> nbOfCollidedFlows (number of collided flows) a flow may collide more than once in different locations with another flow but it will be counted as one in this counter
-                                        # 2 --> nbOfDistinctCollidedLocations (how many different locations a flow will have a collision at)
-                                        # 3 --> nbOfCollisionsInTheLocation (how many collisions a flow will have in the current location)
-                                        # Based on this list a flow will be drop
-                                        # The default order is [1,2,0,3], which means if a collision occur, we will drop the flow with the highest 'nbOfCollidedFlows', if we have two flows with the same 'nbOfCollidedFlows',
-                                        #               we will drop the one with the highest 'nbOfDistinctCollidedLocations', and so on.
+    if(selectAlgorithm == 0):
+            listOfOrderKeys = [1,2,0,3]         # the collided flows will be descendingly ordered (from high to low) based on the keys in this list from left to right, where:
+                                                # 0 --> nbOfCollisions (total number of collisions) a flow may collide more than once with another flow in different locations. This counter will count them all
+                                                # 1 --> nbOfCollidedFlows (number of collided flows) a flow may collide more than once in different locations with another flow but it will be counted as one in this counter
+                                                # 2 --> nbOfDistinctCollidedLocations (how many different locations a flow will have a collision at)
+                                                # 3 --> nbOfCollisionsInTheLocation (how many collisions a flow will have in the current location)
+                                                # Based on this list a flow will be drop
+                                                # The default order is [1,2,0,3], which means if a collision occur, we will drop the flow with the highest 'nbOfCollidedFlows', if we have two flows with the same 'nbOfCollidedFlows',
+                                                #               we will drop the one with the highest 'nbOfDistinctCollidedLocations', and so on.
 
     if(len(deletedScheduledFlows) != 0):
         if(len(deletedScheduledFlows.__getitem__(0))!=3):
@@ -2187,8 +2188,29 @@ def delayBasedOnTheHighestNBOfCollisions(G,scheduledFlows, deletedScheduledFlows
         for collisionLocation in listItem.__getitem__(4):
             # if collisionLocation in listOfResolvedLocations:
             #     continue
-            orderedListOfStatisticsPerFlows, orderedListOfCollidedPairs = orderCollidedFlowsBasedOnNBOfCollisions(
-                listItem.__getitem__(0), collisionLocation, collisionListV2, listofCollisionsV2, listOfOrderKeys)
+            if(selectAlgorithm ==0):
+                orderedListOfStatisticsPerFlows, orderedListOfCollidedPairs = orderCollidedFlowsBasedOnNBOfCollisions(listItem.__getitem__(0), collisionLocation, collisionListV2, listofCollisionsV2, listOfOrderKeys)
+                                                          # This will make the list ordered by the distinct number of collisions from high to low
+                                                          # We did so because the next for loop will go through this list from the end to the beginning
+                                                          # So, in case of a collision we will make the flow that have less # of collisions transmit before the others
+            elif(selectAlgorithm == 1):
+                orderedListOfStatisticsPerFlows = orderCollidedFlowsBasedOnTheSoonestDeadline(G,listItem.__getitem__(0), collisionLocation,newScheduledFlows,newDeletedScheduledFlows,collisionListV2)
+                orderedListOfStatisticsPerFlows.reverse() # This will make the list ordered by the left deadline from the long to short
+                                                          # We did so because the next for loop will go through this list from the end to the beginning
+                                                          # So, in case of a collision we will make the flow with short left deadline transmit before the others
+            elif(selectAlgorithm == 2):
+                orderedListOfStatisticsPerFlows = orderCollidedFlowsBasedOnTheShortestDelay(listItem.__getitem__(0), collisionLocation, collisionListV2,listofCollisionsV2)
+                                                          # This will make the list ordered by the maximum delay a flow encounter by delaying it after other flows from the short to long
+                                                          # We did so because the next for loop will go through this list from the end to the beginning
+                                                          # So, in case of a collision we will make the flow with a long encountered delay transmit before the others
+            elif (selectAlgorithm == 3):
+                orderedListOfStatisticsPerFlows = orderCollidedFlowsBasedOnTheEarliestArrivalTime(G,listItem.__getitem__(0),collisionLocation,newScheduledFlows,newDeletedScheduledFlows,collisionListV2)
+                                                          # This will make the list ordered by the arrival time from latest to soonest
+                                                          # We did so because the next for loop will go through this list from the end to the beginning
+                                                          # So, in case of a collision we will make the flow that arrived first transmit before the others
+            else:
+                print("The selected algorithm has to be between 0 and 3")
+
             startCondition = len(orderedListOfStatisticsPerFlows) - 1
             locationDroppedFlowsIndeces = []
             # firstFlowFlag = True
@@ -2366,10 +2388,15 @@ def delayBasedOnTheHighestNBOfCollisions(G,scheduledFlows, deletedScheduledFlows
     return listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows
 
 def collisionResolveByDelaying(G,scheduledFlows, deletedScheduledFlows,listofCollisions, collisionList,collisionPerEgressPortCounter, selectAlgorithm, CLength):
-    if (selectAlgorithm == 0):
-        listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows = delayBasedOnTheHighestNBOfCollisions(
-            G,scheduledFlows, deletedScheduledFlows,listofCollisions, collisionList,collisionPerEgressPortCounter, CLength)
-        return listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows
+    # if (selectAlgorithm == 0):
+    #     listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows = delayBasedOnTheHighestNBOfCollisions(
+    #         G,scheduledFlows, deletedScheduledFlows,listofCollisions, collisionList,collisionPerEgressPortCounter, CLength)
+    #     return listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows
+
+
+    listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows = delayBasedOnTheHighestNBOfCollisions(
+        G,scheduledFlows, deletedScheduledFlows,listofCollisions, collisionList,collisionPerEgressPortCounter, selectAlgorithm, CLength)
+    return listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows
 
 
 def collisionResolve(G,scheduledFlows, deletedScheduledFlows,listofCollisions, collisionList, collisionPerEgressPortCounter, resolveMethod, selectAlgorithm, CLength):
@@ -2975,7 +3002,7 @@ def deleteAttack(G, hostsList , firstKthPaths, timeSlotsAmount, nbOfTSNFlows, pF
     print()
     print()
     resolveMethod = 1               # 0 for dropping and 1 for delaying
-    selectAlgorithm = 0             # 0,1,2 or 3 check the method body to understand the meaning of this algorithms
+    selectAlgorithm = 3             # 0,1,2 or 3 check the method body to understand the meaning of this algorithms
     while(selectAlgorithm not in [0,1,2,3]):
         selectAlgorithm = input("Please, select an algorithm between 0-3")
         try:
@@ -2988,10 +3015,18 @@ def deleteAttack(G, hostsList , firstKthPaths, timeSlotsAmount, nbOfTSNFlows, pF
             resolveMethod = int(resolveMethod)
         except:
             continue
-    if(selectAlgorithm in [1,2,3] and typeofSchedulingAlgorithm == 0):
+
+    if (resolveMethod == 1 and typeofSchedulingAlgorithm == 0):
         print(
-            R + "WARNING: The select algorithm cannot be used with SWTS due to the schedule nature\nOnly selecting the flow with highest number of collisions works with this scheduling algorithm.\nTherefore, the select algorithm is changed to 0" + W)
+            R + "WARNING: The selected resolve method cannot be used with SWTS due to the schedule nature\nOnly resolving the collisionn by dropping the flow with highest number of collisions algorithm works with this scheduling algorithm.\nTherefore, both the resolve method and the select algorithm are changed to 0" + W)
+        resolveMethod = 0
         selectAlgorithm = 0
+    elif(selectAlgorithm in [1,2,3] and typeofSchedulingAlgorithm == 0):
+        print(
+            R + "WARNING: The selected algorithm cannot be used with SWTS due to the schedule nature\nOnly selecting the flow with highest number of collisions works with this scheduling algorithm.\nTherefore, the select algorithm is changed to 0" + W)
+        selectAlgorithm = 0
+
+
 
     listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows = collisionResolve(G,scheduledFlows, deletedScheduledFlows,
         listofCollisions, collisionList, collisionPerEgressPortCounter, resolveMethod, selectAlgorithm,CLength)
@@ -3519,7 +3554,7 @@ def main():
                                         #                             1   = at the end
                                         #                             0.5 = after trying to schedule 50% of TSN flows
 
-    typeofSchedulingAlgorithm = 2       # The used scheduling algorithm (0 = SWTS
+    typeofSchedulingAlgorithm = 4       # The used scheduling algorithm (0 = SWTS
                                         #                                1 = SWOTS_ASAP
                                         #                                2 = SWOTS_ASAP_WS
                                         #                                3 = SWOTS_AEAP
