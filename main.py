@@ -1221,9 +1221,10 @@ def computeNumberOfCollisionPerRun(listofCollisions):
         for index in range(len(collidedLocations)):
             secondCollidedTSNFlow = collidedTSNFlows.__getitem__(index)
             collidedLocation = collidedLocations.__getitem__(index)
-            distinctCollisionPerEgressPortCounter = distinctCollisionPerEgressPortCounter + 1
+            # distinctCollisionPerEgressPortCounter = distinctCollisionPerEgressPortCounter + 1
             if (secondCollidedTSNFlow in listOfComputedCollidedTSNFlows):  # we have already computed this collision
                 continue
+            distinctCollisionPerEgressPortCounter = distinctCollisionPerEgressPortCounter + 1
             if (len(theResultList) > 0):
                 if (secondCollidedTSNFlow in listOfExistingFlows):
                     existingFlowIndex = 0
@@ -2179,7 +2180,7 @@ def delayBasedOnTheHighestNBOfCollisions(G,scheduledFlows, deletedScheduledFlows
 
     for listItem in listofCollisions:
         #flag = False
-        if (listItem.__getitem__(0) in listOfDropedFlows or listItem not in listofCollisionsV2):
+        if (listItem.__getitem__(0) in listOfDropedFlows):  #or listItem not in listofCollisionsV2):
             continue
         #listOfResolvedLocations = []
 
