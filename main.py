@@ -1238,6 +1238,7 @@ def computeNumberOfCollisionPerRun(listofCollisions):
                     listOfExistingFlows.append(secondCollidedTSNFlow)
             else:       # This else statement will cover the first iteration where there is no entry in the list
                 theResultList.append((firstCollidedTSNFlow, secondCollidedTSNFlow, [collidedLocation]))
+                listOfExistingFlows.append(secondCollidedTSNFlow)
         listOfComputedCollidedTSNFlows.append(firstCollidedTSNFlow)
 
     return theResultList,distinctCollisionPerEgressPortCounter
@@ -2059,7 +2060,7 @@ def orderCollidedFlowsBasedOnTheEarliestArrivalTime(G, TSNFlow, collisionLocatio
         queueIndex = int((operationIndex / 2) - 1)
         arrivalTime = operations.__getitem__(operationIndex - 1).cumulativeDelay + scheduleItem.__getitem__(2).__getitem__(
             queueIndex)
-        unorderedListOfCollidedFlowsByEarliestArrivalTime.append((TSNFlow, arrivalTime))
+        unorderedListOfCollidedFlowsByEarliestArrivalTime.append((TSNFlow, arrivalTime, operations.__getitem__(operationIndex - 1).cumulativeDelay))
         for tempTSNFlow in collidedFlowList:
             scheduleItem = getSchedulingDetails(tempTSNFlow, scheduledFlows, deletedScheduledFlows)
             operations = map_ws(G, tempTSNFlow, scheduleItem.__getitem__(1), scheduleItem.__getitem__(2))
@@ -2067,10 +2068,10 @@ def orderCollidedFlowsBasedOnTheEarliestArrivalTime(G, TSNFlow, collisionLocatio
             queueIndex = int((operationIndex / 2) - 1)
             arrivalTime = operations.__getitem__(operationIndex - 1).cumulativeDelay + scheduleItem.__getitem__(
                 2).__getitem__(queueIndex)
-            unorderedListOfCollidedFlowsByEarliestArrivalTime.append((tempTSNFlow, arrivalTime))
+            unorderedListOfCollidedFlowsByEarliestArrivalTime.append((tempTSNFlow, arrivalTime, operations.__getitem__(operationIndex - 1).cumulativeDelay))
 
     orderedListOfCollidedFlowsByEarliestArrivalTime = sorted(unorderedListOfCollidedFlowsByEarliestArrivalTime,
-                                                         key=lambda x: (x.__getitem__(1)), reverse=True)
+                                                         key=lambda x: (x.__getitem__(1),x.__getitem__(1)), reverse=True)
     return orderedListOfCollidedFlowsByEarliestArrivalTime
 
 
@@ -2142,7 +2143,7 @@ def adjustQueuingDelay(flowQueuingDelayList,collisionLocationQueuingDelayIndex,a
             if(len(flowQueuingDelayList)-1 > collisionLocationQueuingDelayIndex):
                 flowQueuingDelayList[collisionLocationQueuingDelayIndex+1] = flowQueuingDelayList[collisionLocationQueuingDelayIndex+1] + tempAdjustment
 
-def delayBasedOnTheHighestNBOfCollisions(G,scheduledFlows, deletedScheduledFlows,listofCollisions, collisionList,collisionPerEgressPortCounter, selectAlgorithm, CLength):
+def collisionResolveByDelayingCollidedFlows(G,scheduledFlows, deletedScheduledFlows,listofCollisions, collisionList,collisionPerEgressPortCounter, selectAlgorithm, CLength):
     listofCollisionsV2, collisionListV2 = copyCollisionlists(listofCollisions, collisionList)
     newCollisionPerEgressPortCounter = collisionPerEgressPortCounter
     listOfDropedFlows = []
@@ -2213,6 +2214,7 @@ def delayBasedOnTheHighestNBOfCollisions(G,scheduledFlows, deletedScheduledFlows
 
             startCondition = len(orderedListOfStatisticsPerFlows) - 1
             locationDroppedFlowsIndeces = []
+            listOfCollidedTSNFlows = [tempItem.__getitem__(0) for tempItem in orderedListOfStatisticsPerFlows]
             # firstFlowFlag = True
             # initialDelay = 0
             for i in range(startCondition,-1,-1):
@@ -2264,7 +2266,7 @@ def delayBasedOnTheHighestNBOfCollisions(G,scheduledFlows, deletedScheduledFlows
                             ((firstScheduledFlowFinishTime <= secondScheduledFlowFinishTime) and (
                                     firstScheduledFlowArrivalTime >= secondScheduledFlowArrivalTime))):
                         causedDelay = secondScheduledFlowFinishTime - firstScheduledFlowArrivalTime
-                        if(((firstScheduledFlowFinishTime + causedDelay - initialTime) >= CLength) or ((firstScheduledFlowOperations.__getitem__(-1).cumulativeDelay + causedDelay) > firstScheduledFlow.flowMaxDelay)):
+                        if(((firstScheduledFlowFinishTime + causedDelay - initialTime) >= CLength) or ((firstScheduledFlowOperations.__getitem__(-1).cumulativeDelay + causedDelay - firstScheduledFlowStartTime) > firstScheduledFlow.flowMaxDelay)):
                             flag = True
                             listOfDropedFlows.append(firstScheduledFlow)
                             locationDroppedFlowsIndeces.append(i)
@@ -2289,7 +2291,7 @@ def delayBasedOnTheHighestNBOfCollisions(G,scheduledFlows, deletedScheduledFlows
                         firstScheduledFlowOperations, operationID)
                     firstScheduledFlowQueuingIndex = int((firstScheduledFLowCollidedOperationIndex / 2) - 1)
                     for scheduledItem2 in newScheduledFlows:
-                        if((scheduledItem2.__getitem__(0) in listOfDropedFlows) or (scheduledItem2.__getitem__(0) in orderedListOfStatisticsPerFlows and orderedListOfStatisticsPerFlows.index(scheduledItem2.__getitem__(0)) <= i)):
+                        if((scheduledItem2.__getitem__(0) in listOfDropedFlows) or (scheduledItem2.__getitem__(0) in listOfCollidedTSNFlows and listOfCollidedTSNFlows.index(scheduledItem2.__getitem__(0)) <= i)):
                             continue
                         ######################################################################################
                         secondScheduledFlow = scheduledItem2.__getitem__(0)
@@ -2323,7 +2325,7 @@ def delayBasedOnTheHighestNBOfCollisions(G,scheduledFlows, deletedScheduledFlows
                                             firstScheduledFlowArrivalTime >= secondScheduledFlowArrivalTime))):
                                 causedDelay = secondScheduledFlowFinishTime - firstScheduledFlowArrivalTime
                                 isAdjusted = True
-                                if (((firstScheduledFlowFinishTime + causedDelay - initialTime) >= CLength) or ((firstScheduledFlowOperations.__getitem__(-1).cumulativeDelay + causedDelay) > firstScheduledFlow.flowMaxDelay)):
+                                if (((firstScheduledFlowFinishTime + causedDelay - initialTime) >= CLength) or ((firstScheduledFlowOperations.__getitem__(-1).cumulativeDelay + causedDelay - firstScheduledFlowStartTime) > firstScheduledFlow.flowMaxDelay)):
                                     exitFlag = True
                                     listOfDropedFlows.append(firstScheduledFlow)
                                     newCollisionPerEgressPortCounter = dropTSNFlowFromCollisionLists(firstScheduledFlow,listofCollisionsV2,collisionListV2,newCollisionPerEgressPortCounter)
@@ -2337,7 +2339,7 @@ def delayBasedOnTheHighestNBOfCollisions(G,scheduledFlows, deletedScheduledFlows
                         continue
 
                     for deletedItem in newDeletedScheduledFlows:
-                        if ((deletedItem.__getitem__(0) in listOfDropedFlows) or (deletedItem.__getitem__(0) in orderedListOfStatisticsPerFlows and orderedListOfStatisticsPerFlows.index(deletedItem.__getitem__(0)) < i)):
+                        if ((deletedItem.__getitem__(0) in listOfDropedFlows) or (deletedItem.__getitem__(0) in listOfCollidedTSNFlows and listOfCollidedTSNFlows.index(deletedItem.__getitem__(0)) < i)):
                             continue
 
                         secondScheduledFlow = deletedItem.__getitem__(0)
@@ -2361,7 +2363,7 @@ def delayBasedOnTheHighestNBOfCollisions(G,scheduledFlows, deletedScheduledFlows
                                             firstScheduledFlowArrivalTime >= secondScheduledFlowArrivalTime))):
                                 causedDelay = secondScheduledFlowFinishTime - firstScheduledFlowArrivalTime
                                 isAdjusted = True
-                                if (((firstScheduledFlowFinishTime + causedDelay - initialTime) >= CLength) or ((firstScheduledFlowOperations.__getitem__(-1).cumulativeDelay + causedDelay) > firstScheduledFlow.flowMaxDelay)):
+                                if (((firstScheduledFlowFinishTime + causedDelay - initialTime) >= CLength) or ((firstScheduledFlowOperations.__getitem__(-1).cumulativeDelay + causedDelay - firstScheduledFlowStartTime) > firstScheduledFlow.flowMaxDelay)):
                                     exitFlag = True
                                     listOfDropedFlows.append(firstScheduledFlow)
                                     newCollisionPerEgressPortCounter = dropTSNFlowFromCollisionLists(firstScheduledFlow, listofCollisionsV2, collisionListV2,newCollisionPerEgressPortCounter)
@@ -2385,7 +2387,7 @@ def delayBasedOnTheHighestNBOfCollisions(G,scheduledFlows, deletedScheduledFlows
                             exitFlag = True
 
 
-    return listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows
+    return listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows, newScheduledFlows, newDeletedScheduledFlows
 
 def collisionResolveByDelaying(G,scheduledFlows, deletedScheduledFlows,listofCollisions, collisionList,collisionPerEgressPortCounter, selectAlgorithm, CLength):
     # if (selectAlgorithm == 0):
@@ -2394,9 +2396,9 @@ def collisionResolveByDelaying(G,scheduledFlows, deletedScheduledFlows,listofCol
     #     return listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows
 
 
-    listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows = delayBasedOnTheHighestNBOfCollisions(
+    listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows, newScheduledFlows, newDeletedScheduledFlows = collisionResolveByDelayingCollidedFlows(
         G,scheduledFlows, deletedScheduledFlows,listofCollisions, collisionList,collisionPerEgressPortCounter, selectAlgorithm, CLength)
-    return listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows
+    return listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows, newScheduledFlows, newDeletedScheduledFlows
 
 
 def collisionResolve(G,scheduledFlows, deletedScheduledFlows,listofCollisions, collisionList, collisionPerEgressPortCounter, resolveMethod, selectAlgorithm, CLength):
@@ -2410,10 +2412,10 @@ def collisionResolve(G,scheduledFlows, deletedScheduledFlows,listofCollisions, c
     # Then, it updates the list accordingly
     if (resolveMethod == 0):
         listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows = collisionResolveByDropping(G,scheduledFlows, deletedScheduledFlows,listofCollisions, collisionList, collisionPerEgressPortCounter, selectAlgorithm)
-        return listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows
+        return listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows, scheduledFlows, deletedScheduledFlows
     else:
-        listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows = collisionResolveByDelaying(G,scheduledFlows, deletedScheduledFlows,listofCollisions, collisionList,collisionPerEgressPortCounter, selectAlgorithm, CLength)
-        return listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows
+        listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows, newScheduledFlows, newDeletedScheduledFlows = collisionResolveByDelaying(G,scheduledFlows, deletedScheduledFlows,listofCollisions, collisionList,collisionPerEgressPortCounter, selectAlgorithm, CLength)
+        return listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows, newScheduledFlows, newDeletedScheduledFlows
 
 
 def copyCollisionlists(listofCollisions, collisionList):
@@ -3027,8 +3029,130 @@ def deleteAttack(G, hostsList , firstKthPaths, timeSlotsAmount, nbOfTSNFlows, pF
         selectAlgorithm = 0
 
 
+#################################################################################################
 
-    listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows = collisionResolve(G,scheduledFlows, deletedScheduledFlows,
+    print(O)
+    print()
+    print("=======================================================================")
+    print()
+    print(">>>> Scheduled Flows Version I <<<<")
+    print()
+    for scheduledItem in scheduledFlows:
+        TF = scheduledItem.__getitem__(0)
+        startTime = scheduledItem.__getitem__(1)
+        if(len(scheduledItem)>2):
+            queuingDelays = scheduledItem.__getitem__(2)
+            print('Flow# {} starts transmission at {} and its queuing delays are as follow: {}'.format(TF.id,startTime,queuingDelays))
+            operations = map_ws(G,TF,startTime,queuingDelays)
+        else:
+            print('Flow# {} starts transmission at {}'.format(TF.id, startTime))
+            operations = map(G, TF, startTime)
+        print("       Its path is as follow: (",end="")
+        for i in range(len(scheduledItem.__getitem__(0).path.nodes)):
+            if(i ==0):
+                print(scheduledItem.__getitem__(0).path.nodes.__getitem__(i).id,end=", ")
+            elif(i == len(scheduledItem.__getitem__(0).path.nodes)-1):
+                print("{})".format(scheduledItem.__getitem__(0).path.nodes.__getitem__(i).id))
+            else:
+                print(scheduledItem.__getitem__(0).path.nodes.__getitem__(i), end=", ")
+
+        if (len(scheduledItem) == 2):
+            print(O+"       Its deadline {} and startTime {} has the following operations: \n       [".format(TF.flowMaxDelay,startTime),end="")
+            index = 0
+            for operation in operations:
+                if(index != len(operations)-1):
+                    print("{}:{}], [".format(operation.id,operation.cumulativeDelay),end="")
+                else:
+                    print("{}:{}]".format(operation.id, operation.cumulativeDelay))
+
+                index =index +1
+        else:
+            print(O + "       Its deadline {} and startTime {} has the following operations: \n       [".format(TF.flowMaxDelay, startTime), end="")
+            index = 0
+            for operation in operations:
+                if (index != len(operations) - 1):
+                    if(index == 0 or index%2 == 1):
+                        print("{}:{}], [".format(operation.id, operation.cumulativeDelay), end="")
+                    elif(index%2 ==0):
+                        print("{}:{}:QD={}], [".format(operation.id, operation.cumulativeDelay,queuingDelays.__getitem__(int((index/2)-1))), end="")
+                else:
+                    print("{}:{}]".format(operation.id, operation.cumulativeDelay))
+
+                index = index + 1
+        print()
+        print("---------------------")
+        print()
+    print("=======================================================================")
+    print()
+    print()
+    print(W)
+
+    print(B)
+    print()
+    print("=======================================================================")
+    print()
+    print(">>>> Scheduled Deleted Flows Version I <<<<")
+    print()
+    for scheduledItem in deletedScheduledFlows:
+        TF = scheduledItem.__getitem__(0)
+        startTime = scheduledItem.__getitem__(1)
+        if (len(scheduledItem) > 2):
+            queuingDelays = scheduledItem.__getitem__(2)
+            print('Flow# {} starts transmission at {} and its queuing delays are as follow: {}'.format(TF.id, startTime,
+                                                                                                       queuingDelays))
+            operations = map_ws(G, TF, startTime, queuingDelays)
+        else:
+            print('Flow# {} starts transmission at {}'.format(TF.id, startTime))
+            operations = map(G, TF, startTime)
+        print("       Its path is as follow: (", end="")
+        for i in range(len(scheduledItem.__getitem__(0).path.nodes)):
+            if (i == 0):
+                print(scheduledItem.__getitem__(0).path.nodes.__getitem__(i).id, end=", ")
+            elif (i == len(scheduledItem.__getitem__(0).path.nodes) - 1):
+                print("{})".format(scheduledItem.__getitem__(0).path.nodes.__getitem__(i).id))
+            else:
+                print(scheduledItem.__getitem__(0).path.nodes.__getitem__(i), end=", ")
+
+        if (len(scheduledItem) == 2):
+            print(
+                B + "       Its deadline {} and startTime {} has the following operations: \n       [".format(TF.flowMaxDelay,
+                                                                                                startTime), end="")
+            index = 0
+            for operation in operations:
+                if (index != len(operations) - 1):
+                    print("{}:{}], [".format(operation.id, operation.cumulativeDelay), end="")
+                else:
+                    print("{}:{}]".format(operation.id, operation.cumulativeDelay))
+
+                index = index + 1
+        else:
+            print(
+                B + "       Its deadline {} and startTime {} has the following operations: \n       [".format(TF.flowMaxDelay,
+                                                                                                startTime), end="")
+            index = 0
+            for operation in operations:
+                if (index != len(operations) - 1):
+                    if (index == 0 or index % 2 == 1):
+                        print("{}:{}], [".format(operation.id, operation.cumulativeDelay), end="")
+                    elif (index % 2 == 0):
+                        print("{}:{}:QD={}], [".format(operation.id, operation.cumulativeDelay,
+                                                       queuingDelays.__getitem__(int((index / 2) - 1))), end="")
+                else:
+                    print("{}:{}]".format(operation.id, operation.cumulativeDelay))
+
+                index = index + 1
+        print()
+        print("---------------------")
+        print()
+    print("=======================================================================")
+    print()
+    print()
+    print(W)
+
+#################################################################################################
+
+
+    listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows, newScheduledFlows, newDeletedScheduledFlows = collisionResolve(G,scheduledFlows, deletedScheduledFlows,
         listofCollisions, collisionList, collisionPerEgressPortCounter, resolveMethod, selectAlgorithm,CLength)
     print()
     print()
@@ -3054,6 +3178,140 @@ def deleteAttack(G, hostsList , firstKthPaths, timeSlotsAmount, nbOfTSNFlows, pF
     for e in listOfDropedFlows:
         print("({}) flow number {}".format(numberCounter,e.id))
         numberCounter = numberCounter + 1
+
+        #################################################################################################
+
+    print(O)
+    print()
+    print("=======================================================================")
+    print()
+    print(">>>> Scheduled Flows Version II <<<<")
+    print()
+    for scheduledItem in newScheduledFlows:
+        TF = scheduledItem.__getitem__(0)
+        startTime = scheduledItem.__getitem__(1)
+        if (len(scheduledItem) > 2):
+            queuingDelays = scheduledItem.__getitem__(2)
+            print('Flow# {} starts transmission at {} and its queuing delays are as follow: {}'.format(TF.id,
+                                                                                                       startTime,
+                                                                                                       queuingDelays))
+            operations = map_ws(G, TF, startTime, queuingDelays)
+        else:
+            print('Flow# {} starts transmission at {}'.format(TF.id, startTime))
+            operations = map(G, TF, startTime)
+        print("       Its path is as follow: (", end="")
+        for i in range(len(scheduledItem.__getitem__(0).path.nodes)):
+            if (i == 0):
+                print(scheduledItem.__getitem__(0).path.nodes.__getitem__(i).id, end=", ")
+            elif (i == len(scheduledItem.__getitem__(0).path.nodes) - 1):
+                print("{})".format(scheduledItem.__getitem__(0).path.nodes.__getitem__(i).id))
+            else:
+                print(scheduledItem.__getitem__(0).path.nodes.__getitem__(i), end=", ")
+
+        if (len(scheduledItem) == 2):
+            print(
+                O + "       Its deadline {} and startTime {} has the following operations: \n       [".format(TF.flowMaxDelay,
+                                                                                                              startTime),
+                end="")
+            index = 0
+            for operation in operations:
+                if (index != len(operations) - 1):
+                    print("{}:{}], [".format(operation.id, operation.cumulativeDelay), end="")
+                else:
+                    print("{}:{}]".format(operation.id, operation.cumulativeDelay))
+
+                index = index + 1
+        else:
+            print(
+                O + "       Its deadline {} and startTime {} has the following operations: \n       [".format(TF.flowMaxDelay,
+                                                                                                              startTime),
+                end="")
+            index = 0
+            for operation in operations:
+                if (index != len(operations) - 1):
+                    if (index == 0 or index % 2 == 1):
+                        print("{}:{}], [".format(operation.id, operation.cumulativeDelay), end="")
+                    elif (index % 2 == 0):
+                        print("{}:{}:QD={}], [".format(operation.id, operation.cumulativeDelay,
+                                                       queuingDelays.__getitem__(int((index / 2) - 1))), end="")
+                else:
+                    print("{}:{}]".format(operation.id, operation.cumulativeDelay))
+
+                index = index + 1
+        print()
+        print("---------------------")
+        print()
+    print("=======================================================================")
+    print()
+    print()
+    print(W)
+
+    print(B)
+    print()
+    print("=======================================================================")
+    print()
+    print(">>>> Scheduled Deleted Flows Version II <<<<")
+    print()
+    for scheduledItem in newDeletedScheduledFlows:
+        TF = scheduledItem.__getitem__(0)
+        startTime = scheduledItem.__getitem__(1)
+        if (len(scheduledItem) > 2):
+            queuingDelays = scheduledItem.__getitem__(2)
+            print('Flow# {} starts transmission at {} and its queuing delays are as follow: {}'.format(TF.id,
+                                                                                                       startTime,
+                                                                                                       queuingDelays))
+            operations = map_ws(G, TF, startTime, queuingDelays)
+        else:
+            print('Flow# {} starts transmission at {}'.format(TF.id, startTime))
+            operations = map(G, TF, startTime)
+        print("       Its path is as follow: (", end="")
+        for i in range(len(scheduledItem.__getitem__(0).path.nodes)):
+            if (i == 0):
+                print(scheduledItem.__getitem__(0).path.nodes.__getitem__(i).id, end=", ")
+            elif (i == len(scheduledItem.__getitem__(0).path.nodes) - 1):
+                print("{})".format(scheduledItem.__getitem__(0).path.nodes.__getitem__(i).id))
+            else:
+                print(scheduledItem.__getitem__(0).path.nodes.__getitem__(i), end=", ")
+
+        if (len(scheduledItem) == 2):
+            print(
+                B + "       Its deadline {} and startTime {} has the following operations: \n       [".format(TF.flowMaxDelay,
+                                                                                                              startTime),
+                end="")
+            index = 0
+            for operation in operations:
+                if (index != len(operations) - 1):
+                    print("{}:{}], [".format(operation.id, operation.cumulativeDelay), end="")
+                else:
+                    print("{}:{}]".format(operation.id, operation.cumulativeDelay))
+
+                index = index + 1
+        else:
+            print(
+                B + "       Its deadline {} and startTime {} has the following operations: \n       [".format(TF.flowMaxDelay,
+                                                                                                              startTime),
+                end="")
+            index = 0
+            for operation in operations:
+                if (index != len(operations) - 1):
+                    if (index == 0 or index % 2 == 1):
+                        print("{}:{}], [".format(operation.id, operation.cumulativeDelay), end="")
+                    elif (index % 2 == 0):
+                        print("{}:{}:QD={}], [".format(operation.id, operation.cumulativeDelay,
+                                                       queuingDelays.__getitem__(int((index / 2) - 1))), end="")
+                else:
+                    print("{}:{}]".format(operation.id, operation.cumulativeDelay))
+
+                index = index + 1
+        print()
+        print("---------------------")
+        print()
+    print("=======================================================================")
+    print()
+    print()
+    print(W)
+
+#################################################################################################
 
 
 
@@ -3554,7 +3812,7 @@ def main():
                                         #                             1   = at the end
                                         #                             0.5 = after trying to schedule 50% of TSN flows
 
-    typeofSchedulingAlgorithm = 4       # The used scheduling algorithm (0 = SWTS
+    typeofSchedulingAlgorithm = 2       # The used scheduling algorithm (0 = SWTS
                                         #                                1 = SWOTS_ASAP
                                         #                                2 = SWOTS_ASAP_WS
                                         #                                3 = SWOTS_AEAP
