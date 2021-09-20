@@ -2118,30 +2118,34 @@ def collisionResolveByDropping(G,scheduledFlows, deletedScheduledFlows,listofCol
             G, scheduledFlows, deletedScheduledFlows, listofCollisions, collisionList, collisionPerEgressPortCounter)
         return listofCollisionsV2, collisionListV2, newCollisionPerEgressPortCounter, listOfDropedFlows
 
-def adjustQueuingDelay(flowQueuingDelayList,collisionLocationQueuingDelayIndex,adjustingAmount):
+def adjustQueuingDelay(flowQueuingDelayList,collisionLocationQueuingDelayIndex,adjustingAmount, queuingDelay):
     if(adjustingAmount >= 0):
         flowQueuingDelayList[collisionLocationQueuingDelayIndex] = flowQueuingDelayList[collisionLocationQueuingDelayIndex] + adjustingAmount
         for i in range(collisionLocationQueuingDelayIndex + 1,len(flowQueuingDelayList),1):
             if(flowQueuingDelayList[i]>0):
+                queuingDelay = True
                 if(adjustingAmount >= flowQueuingDelayList[i]):
                     adjustingAmount = adjustingAmount - flowQueuingDelayList[i]
                     flowQueuingDelayList[i] = 0
                     if(adjustingAmount == 0):
-                        break
+                        return queuingDelay
                 else:
                     flowQueuingDelayList[i] = flowQueuingDelayList[i] - adjustingAmount
-                    break
+                    return queuingDelay
     else:
         adjustingAmount = abs(adjustingAmount)
         if(flowQueuingDelayList[collisionLocationQueuingDelayIndex]> adjustingAmount):
             flowQueuingDelayList[collisionLocationQueuingDelayIndex] = flowQueuingDelayList[collisionLocationQueuingDelayIndex] - adjustingAmount
             if(len(flowQueuingDelayList)-1 > collisionLocationQueuingDelayIndex):
+                queuingDelay = True
                 flowQueuingDelayList[collisionLocationQueuingDelayIndex+1] = flowQueuingDelayList[collisionLocationQueuingDelayIndex+1] + adjustingAmount
         else:
             tempAdjustment = flowQueuingDelayList[collisionLocationQueuingDelayIndex]
             flowQueuingDelayList[collisionLocationQueuingDelayIndex] = 0
             if(len(flowQueuingDelayList)-1 > collisionLocationQueuingDelayIndex):
+                queuingDelay = True
                 flowQueuingDelayList[collisionLocationQueuingDelayIndex+1] = flowQueuingDelayList[collisionLocationQueuingDelayIndex+1] + tempAdjustment
+    return queuingDelay
 
 def collisionResolveByDelayingCollidedFlows(G,scheduledFlows, deletedScheduledFlows,listofCollisions, collisionList,collisionPerEgressPortCounter, selectAlgorithm, CLength):
     listofCollisionsV2, collisionListV2 = copyCollisionlists(listofCollisions, collisionList)
@@ -2215,6 +2219,7 @@ def collisionResolveByDelayingCollidedFlows(G,scheduledFlows, deletedScheduledFl
             startCondition = len(orderedListOfStatisticsPerFlows) - 1
             locationDroppedFlowsIndeces = []
             listOfCollidedTSNFlows = [tempItem.__getitem__(0) for tempItem in orderedListOfStatisticsPerFlows]
+            queuingDelayFlag = False
             # firstFlowFlag = True
             # initialDelay = 0
             for i in range(startCondition,-1,-1):
@@ -2273,10 +2278,10 @@ def collisionResolveByDelayingCollidedFlows(G,scheduledFlows, deletedScheduledFl
                             newCollisionPerEgressPortCounter = dropTSNFlowFromCollisionLists(firstScheduledFlow,listofCollisionsV2,collisionListV2,newCollisionPerEgressPortCounter)
                             break
                         else:
-                            adjustQueuingDelay(firstScheduledFlowQueuingDelays,firstScheduledFlowQueuingIndex,causedDelay)
+                            queuingDelayFlag = adjustQueuingDelay(firstScheduledFlowQueuingDelays,firstScheduledFlowQueuingIndex,causedDelay,queuingDelayFlag)
                     elif(firstScheduledFlowArrivalTime >= secondScheduledFlowFinishTime):
                         adjustedQueuingDelay = firstScheduledFlowArrivalTime - secondScheduledFlowFinishTime
-                        adjustQueuingDelay(firstScheduledFlowQueuingDelays,firstScheduledFlowQueuingIndex,(-1 * adjustedQueuingDelay))
+                        queuingDelayFlag = adjustQueuingDelay(firstScheduledFlowQueuingDelays,firstScheduledFlowQueuingIndex,(-1 * adjustedQueuingDelay),queuingDelayFlag)
 
                 if(flag):
                     continue
@@ -2331,8 +2336,7 @@ def collisionResolveByDelayingCollidedFlows(G,scheduledFlows, deletedScheduledFl
                                     newCollisionPerEgressPortCounter = dropTSNFlowFromCollisionLists(firstScheduledFlow,listofCollisionsV2,collisionListV2,newCollisionPerEgressPortCounter)
                                     break
                                 else:
-                                    adjustQueuingDelay(firstScheduledFlowQueuingDelays, firstScheduledFlowQueuingIndex,
-                                                       causedDelay)
+                                    queuingDelayFlag = adjustQueuingDelay(firstScheduledFlowQueuingDelays, firstScheduledFlowQueuingIndex,causedDelay, queuingDelayFlag)
                                     break
 
                     if(isAdjusted):
@@ -2369,7 +2373,7 @@ def collisionResolveByDelayingCollidedFlows(G,scheduledFlows, deletedScheduledFl
                                     newCollisionPerEgressPortCounter = dropTSNFlowFromCollisionLists(firstScheduledFlow, listofCollisionsV2, collisionListV2,newCollisionPerEgressPortCounter)
                                     break
                                 else:
-                                    adjustQueuingDelay(firstScheduledFlowQueuingDelays,firstScheduledFlowQueuingIndex,causedDelay)
+                                    queuingDelayFlag = adjustQueuingDelay(firstScheduledFlowQueuingDelays,firstScheduledFlowQueuingIndex,causedDelay,queuingDelayFlag)
                                     break
 
                     if (isAdjusted):
@@ -2380,6 +2384,105 @@ def collisionResolveByDelayingCollidedFlows(G,scheduledFlows, deletedScheduledFl
                                 dict[firstScheduledFlow.id] = dict[firstScheduledFlow.id] + 2
                                 newCollisionPerEgressPortCounter = dropTSNFlowFromCollisionLocation(firstScheduledFlow,listofCollisionsV2,collisionListV2,newCollisionPerEgressPortCounter,collisionLocation)
                                 exitFlag = True
+
+
+                                # Make sure that we did not cause any new collision#
+                                ############################################################################################################################
+                                if(queuingDelayFlag):
+                                    for tempOperation in firstScheduledFlowOperations[firstScheduledFLowCollidedOperationIndex+2::2]:
+                                        forLoopBreakFlag = False
+                                        tempCollisionLocation = convertOperationIDtoEdge(tempOperation.id)
+                                        tempCollisionList = computeListOfCollisionsForAFlowInEgressPort(collisionListV2,tempCollisionLocation,firstScheduledFlow)
+                                        if(len(tempCollisionList)>0):
+                                            break
+                                        else:
+                                            innerWhileLoopExitFlag = False
+                                            while (not innerWhileLoopExitFlag):
+                                                isAdjusted = False
+                                                firstScheduledFlowOperations = map_ws(G, firstScheduledFlow,firstScheduledFlowStartTime,firstScheduledFlowQueuingDelays)
+                                                firstScheduledFLowCollidedOperationIndex = getOperationIndexByOperationID(firstScheduledFlowOperations, tempOperation.id)
+                                                firstScheduledFlowQueuingIndex = int((firstScheduledFLowCollidedOperationIndex / 2) - 1)
+                                                for scheduledItem2 in newScheduledFlows:
+                                                    if ((scheduledItem2.__getitem__(0) in listOfDropedFlows) or (scheduledItem2.__getitem__(0) in listOfCollidedTSNFlows and listOfCollidedTSNFlows.index(scheduledItem2.__getitem__(0)) <= i)):
+                                                        continue
+                                                    ######################################################################################
+                                                    secondScheduledFlow = scheduledItem2.__getitem__(0)
+                                                    secondScheduledFlowStartTime = scheduledItem2.__getitem__(1)
+                                                    secondScheduledFlowQueuingDelays = scheduledItem2.__getitem__(2)
+                                                    secondScheduledFlowOperations = map_ws(G, secondScheduledFlow,secondScheduledFlowStartTime,secondScheduledFlowQueuingDelays)
+                                                    secondScheduledFLowCollidedOperationIndex = getOperationIndexByOperationID(secondScheduledFlowOperations, tempOperation.id)
+                                                    if (secondScheduledFLowCollidedOperationIndex != -1):
+                                                        secondScheduledFLowCollidedOperationIndex = getOperationIndexByOperationID(secondScheduledFlowOperations, tempOperation.id)
+                                                        secondScheduledFlowQueuingIndex = int((secondScheduledFLowCollidedOperationIndex / 2) - 1)
+                                                        firstScheduledFlowArrivalTime = firstScheduledFlowOperations.__getitem__(firstScheduledFLowCollidedOperationIndex - 1).cumulativeDelay + firstScheduledFlowQueuingDelays.__getitem__(firstScheduledFlowQueuingIndex)
+                                                        firstScheduledFlowFinishTime = firstScheduledFlowOperations.__getitem__(firstScheduledFLowCollidedOperationIndex).cumulativeDelay
+                                                        secondScheduledFlowArrivalTime = secondScheduledFlowOperations.__getitem__(secondScheduledFLowCollidedOperationIndex - 1).cumulativeDelay + secondScheduledFlowQueuingDelays.__getitem__(secondScheduledFlowQueuingIndex)
+                                                        secondScheduledFlowFinishTime = secondScheduledFlowOperations.__getitem__(secondScheduledFLowCollidedOperationIndex).cumulativeDelay
+
+                                                        # This if statement to ensure that there is a collision between these two flows#
+                                                        if (((firstScheduledFlowFinishTime >= secondScheduledFlowFinishTime) and (firstScheduledFlowArrivalTime < secondScheduledFlowFinishTime)) or ((firstScheduledFlowFinishTime > secondScheduledFlowArrivalTime) and (firstScheduledFlowArrivalTime <= secondScheduledFlowArrivalTime)) or ((firstScheduledFlowFinishTime <= secondScheduledFlowFinishTime) and (firstScheduledFlowArrivalTime >= secondScheduledFlowArrivalTime))):
+                                                            causedDelay = secondScheduledFlowFinishTime - firstScheduledFlowArrivalTime
+                                                            isAdjusted = True
+                                                            if (((firstScheduledFlowFinishTime + causedDelay - firstScheduledFlowOperations.__getitem__(firstScheduledFLowCollidedOperationIndex - 1).cumulativeDelay) >= CLength) or ((firstScheduledFlowOperations.__getitem__(-1).cumulativeDelay + causedDelay - firstScheduledFlowStartTime) > firstScheduledFlow.flowMaxDelay)):
+                                                                innerWhileLoopExitFlag = True
+                                                                forLoopBreakFlag = True
+                                                                listOfDropedFlows.append(firstScheduledFlow)
+                                                                newCollisionPerEgressPortCounter = dropTSNFlowFromCollisionLists(firstScheduledFlow, listofCollisionsV2,collisionListV2, newCollisionPerEgressPortCounter)
+                                                                break
+                                                            else:
+                                                                queuingDelayFlag = adjustQueuingDelay(firstScheduledFlowQueuingDelays,firstScheduledFlowQueuingIndex, causedDelay,queuingDelayFlag)
+                                                                break
+
+                                                if (isAdjusted):
+                                                    continue
+
+                                                for deletedItem in newDeletedScheduledFlows:
+                                                    if ((deletedItem.__getitem__(0) in listOfDropedFlows) or (deletedItem.__getitem__(0) in listOfCollidedTSNFlows and listOfCollidedTSNFlows.index(deletedItem.__getitem__(0)) < i)):
+                                                        continue
+
+                                                    secondScheduledFlow = deletedItem.__getitem__(0)
+                                                    secondScheduledFlowStartTime = deletedItem.__getitem__(1)
+                                                    secondScheduledFlowQueuingDelays = deletedItem.__getitem__(2)
+                                                    secondScheduledFlowOperations = map_ws(G, secondScheduledFlow, secondScheduledFlowStartTime, secondScheduledFlowQueuingDelays)
+                                                    if (operationID in secondScheduledFlowOperations):
+                                                        secondScheduledFLowCollidedOperationIndex = getOperationIndexByOperationID(secondScheduledFlowOperations, operationID)
+                                                        secondScheduledFlowQueuingIndex = int((secondScheduledFLowCollidedOperationIndex / 2) - 1)
+                                                        firstScheduledFlowArrivalTime = firstScheduledFlowOperations.__getitem__(firstScheduledFLowCollidedOperationIndex - 1).cumulativeDelay + firstScheduledFlowQueuingDelays.__getitem__(firstScheduledFlowQueuingIndex)
+                                                        firstScheduledFlowFinishTime = firstScheduledFlowOperations.__getitem__(firstScheduledFLowCollidedOperationIndex).cumulativeDelay
+                                                        secondScheduledFlowArrivalTime = secondScheduledFlowOperations.__getitem__(secondScheduledFLowCollidedOperationIndex - 1).cumulativeDelay + secondScheduledFlowQueuingDelays.__getitem__(secondScheduledFlowQueuingIndex)
+                                                        secondScheduledFlowFinishTime = secondScheduledFlowOperations.__getitem__(secondScheduledFLowCollidedOperationIndex).cumulativeDelay
+
+                                                        # This if statement to ensure that there is a collision between these two flows#
+                                                        if (((firstScheduledFlowFinishTime >= secondScheduledFlowFinishTime) and (firstScheduledFlowArrivalTime < secondScheduledFlowFinishTime)) or ((firstScheduledFlowFinishTime > secondScheduledFlowArrivalTime) and (firstScheduledFlowArrivalTime <= secondScheduledFlowArrivalTime)) or ((firstScheduledFlowFinishTime <= secondScheduledFlowFinishTime) and (firstScheduledFlowArrivalTime >= secondScheduledFlowArrivalTime))):
+                                                            causedDelay = secondScheduledFlowFinishTime - firstScheduledFlowArrivalTime
+                                                            isAdjusted = True
+                                                            if (((firstScheduledFlowFinishTime + causedDelay - firstScheduledFlowOperations.__getitem__(firstScheduledFLowCollidedOperationIndex - 1).cumulativeDelay) >= CLength) or ((firstScheduledFlowOperations.__getitem__(-1).cumulativeDelay + causedDelay - firstScheduledFlowStartTime) > firstScheduledFlow.flowMaxDelay)):
+                                                                innerWhileLoopExitFlag = True
+                                                                forLoopBreakFlag = True
+                                                                listOfDropedFlows.append(firstScheduledFlow)
+                                                                newCollisionPerEgressPortCounter = dropTSNFlowFromCollisionLists(firstScheduledFlow, listofCollisionsV2,collisionListV2, newCollisionPerEgressPortCounter)
+                                                                break
+                                                            else:
+                                                                queuingDelayFlag = adjustQueuingDelay(firstScheduledFlowQueuingDelays,firstScheduledFlowQueuingIndex, causedDelay,queuingDelayFlag)
+                                                                break
+
+                                                if (isAdjusted):
+                                                    continue
+                                                else:
+                                                    if (dict[firstScheduledFlow.id] < len(firstScheduledFlowOperations) - 2):
+                                                        dict[firstScheduledFlow.id] = dict[firstScheduledFlow.id] + 2
+                                                        newCollisionPerEgressPortCounter = dropTSNFlowFromCollisionLocation(firstScheduledFlow, listofCollisionsV2, collisionListV2,newCollisionPerEgressPortCounter, collisionLocation)
+                                                        innerWhileLoopExitFlag = True
+                                                    else:
+                                                        newCollisionPerEgressPortCounter = dropTSNFlowFromCollisionLists(firstScheduledFlow, listofCollisionsV2, collisionListV2,newCollisionPerEgressPortCounter)
+                                                        innerWhileLoopExitFlag = True
+                                                        forLoopBreakFlag = True
+                                            if(forLoopBreakFlag):
+                                                break
+
+                                ############################################################################################################################
+
+
                             else:
                                 newCollisionPerEgressPortCounter = dropTSNFlowFromCollisionLists(firstScheduledFlow,listofCollisionsV2,collisionListV2,newCollisionPerEgressPortCounter)
                                 exitFlag = True
