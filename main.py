@@ -7,16 +7,16 @@ import TSNHost
 import Path
 import operation
 import TimeSlot
-import myThread
-import myThread2
+#import myThread
+#import myThread2
 import math
 from timeit import default_timer as timer
 from itertools import islice
 from TSNHost import TSNHost
 import sys
 from itertools import combinations
-from myThread import myThread
-from myThread2 import myThread2
+#from myThread import myThread
+#from myThread2 import myThread2
 #import queue
 
 
@@ -463,7 +463,7 @@ def pathSelection(G, tempTSNFlow, firstKthPaths, TSNCountWeight, bandwidthWeight
                 tempTSNFlow.path = path
         return True,candidatePaths
 
-    return False,candidatePaths
+    #return False,candidatePaths
 
 
 def computeTimeSlotLength(G, hostLists, firstKthPaths):
@@ -2121,9 +2121,10 @@ def collisionResolveByDropping(G,scheduledFlows, deletedScheduledFlows,listofCol
 def adjustQueuingDelay(flowQueuingDelayList,collisionLocationQueuingDelayIndex,adjustingAmount, queuingDelay):
     if(adjustingAmount >= 0):
         flowQueuingDelayList[collisionLocationQueuingDelayIndex] = flowQueuingDelayList[collisionLocationQueuingDelayIndex] + adjustingAmount
+        if ((len(flowQueuingDelayList)-1 > collisionLocationQueuingDelayIndex) and (adjustingAmount > flowQueuingDelayList[collisionLocationQueuingDelayIndex + 1])):
+            queuingDelay = True
         for i in range(collisionLocationQueuingDelayIndex + 1,len(flowQueuingDelayList),1):
             if(flowQueuingDelayList[i]>0):
-                queuingDelay = True
                 if(adjustingAmount >= flowQueuingDelayList[i]):
                     adjustingAmount = adjustingAmount - flowQueuingDelayList[i]
                     flowQueuingDelayList[i] = 0
@@ -2137,13 +2138,13 @@ def adjustQueuingDelay(flowQueuingDelayList,collisionLocationQueuingDelayIndex,a
         if(flowQueuingDelayList[collisionLocationQueuingDelayIndex]> adjustingAmount):
             flowQueuingDelayList[collisionLocationQueuingDelayIndex] = flowQueuingDelayList[collisionLocationQueuingDelayIndex] - adjustingAmount
             if(len(flowQueuingDelayList)-1 > collisionLocationQueuingDelayIndex):
-                queuingDelay = True
+                #queuingDelay = True
                 flowQueuingDelayList[collisionLocationQueuingDelayIndex+1] = flowQueuingDelayList[collisionLocationQueuingDelayIndex+1] + adjustingAmount
         else:
             tempAdjustment = flowQueuingDelayList[collisionLocationQueuingDelayIndex]
             flowQueuingDelayList[collisionLocationQueuingDelayIndex] = 0
             if(len(flowQueuingDelayList)-1 > collisionLocationQueuingDelayIndex):
-                queuingDelay = True
+                #queuingDelay = True
                 flowQueuingDelayList[collisionLocationQueuingDelayIndex+1] = flowQueuingDelayList[collisionLocationQueuingDelayIndex+1] + tempAdjustment
     return queuingDelay
 
@@ -3904,18 +3905,18 @@ def main():
 
     #the security impact simulation parameters#
 
-    typeOfSecurityAttack = 2            # This parameter to choose the type of attack to be tested (0 -> insert attack at the end
+    typeOfSecurityAttack = 0            # This parameter to choose the type of attack to be tested (0 -> insert attack at the end
                                         #                                                           1 -> insert attack (randomly)
                                         #                                                           2 -> delete attack (from the end)
                                         #                                                           3 -> delete attack (random position)
 
-    intensivityOfTheAttack = 0.2        # How strong is the attack (where 0 is none and 1 is all)
+    intensivityOfTheAttack = 0.6        # How strong is the attack (where 0 is none and 1 is all)
 
-    attackStartTime = 0.5               # when the attack will start (0   = at the beginning
+    attackStartTime = 0               # when the attack will start (0   = at the beginning
                                         #                             1   = at the end
                                         #                             0.5 = after trying to schedule 50% of TSN flows
 
-    typeofSchedulingAlgorithm = 2       # The used scheduling algorithm (0 = SWTS
+    typeofSchedulingAlgorithm = 0       # The used scheduling algorithm (0 = SWTS
                                         #                                1 = SWOTS_ASAP
                                         #                                2 = SWOTS_ASAP_WS
                                         #                                3 = SWOTS_AEAP
