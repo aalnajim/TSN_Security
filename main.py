@@ -1,5 +1,6 @@
 
 import random
+import os
 import networkx as nx
 import matplotlib.pyplot as plt
 import TSNFlow
@@ -15,6 +16,7 @@ from itertools import islice
 from TSNHost import TSNHost
 import sys
 from itertools import combinations
+import statistics
 #from myThread import myThread
 #from myThread2 import myThread2
 #import queue
@@ -2773,20 +2775,22 @@ def insertAttack(G, hostsList , firstKthPaths, timeSlotsAmount, nbOfTSNFlows, pF
 
         time = time + random.randint(1, CLength + 1)
 
-    # print statements
-    print('The total number of real TSN flows: {}'.format(nbOfTSNFlows))
-    print('nb of total routed flows (real and unreal): {}'.format(totalRoutedCounter))
-    print('nb of routed real flows: {}'.format(routedCounter))
-    if (typeofSchedulingAlgorithm == 0):
-        print('nb of scheduled flows using SWTS: {}'.format(scheduledCounter))
-    elif (typeofSchedulingAlgorithm == 1):
-        print('nb of scheduled flows using SWOTS_ASAP: {}'.format(scheduledCounter))
-    elif (typeofSchedulingAlgorithm == 2):
-        print('nb of scheduled flows using SWOTS_ASAP_WS: {}'.format(scheduledCounter))
-    elif (typeofSchedulingAlgorithm == 3):
-        print('nb of scheduled flows using SWOTS_AEAP: {}'.format(scheduledCounter))
-    elif (typeofSchedulingAlgorithm == 4):
-        print('nb of scheduled flows using SWOTS_AEAP_WS: {}'.format(scheduledCounter))
+    return (nbOfTSNFlows,totalRoutedCounter,routedCounter,scheduledCounter,(scheduledCounter/routedCounter)*100)
+
+    # # print statements
+    # print('The total number of real TSN flows: {}'.format(nbOfTSNFlows))
+    # print('nb of total routed flows (real and unreal): {}'.format(totalRoutedCounter))
+    # print('nb of routed real flows: {}'.format(routedCounter))
+    # if (typeofSchedulingAlgorithm == 0):
+    #     print('nb of scheduled flows using SWTS: {}'.format(scheduledCounter))
+    # elif (typeofSchedulingAlgorithm == 1):
+    #     print('nb of scheduled flows using SWOTS_ASAP: {}'.format(scheduledCounter))
+    # elif (typeofSchedulingAlgorithm == 2):
+    #     print('nb of scheduled flows using SWOTS_ASAP_WS: {}'.format(scheduledCounter))
+    # elif (typeofSchedulingAlgorithm == 3):
+    #     print('nb of scheduled flows using SWOTS_AEAP: {}'.format(scheduledCounter))
+    # elif (typeofSchedulingAlgorithm == 4):
+    #     print('nb of scheduled flows using SWOTS_AEAP_WS: {}'.format(scheduledCounter))
 
     # return scheduledCounter/routedCounter
 
@@ -3654,10 +3658,10 @@ def testSecurityImpact(typeOfSecurityAttack, attackRate, attackStartTime, typeof
         ##########################################
 
         if(typeOfSecurityAttack in [0,1]):
-            insertAttack(G, hostsList , firstKthPaths, timeSlotsAmount, nbOfTSNFlows, pFlow, TSNCountWeight, bandwidthWeight, hopCountWeight,
+            return insertAttack(G, hostsList , firstKthPaths, timeSlotsAmount, nbOfTSNFlows, pFlow, TSNCountWeight, bandwidthWeight, hopCountWeight,
                          typeOfSecurityAttack, attackRate, attackStartTime, typeofSchedulingAlgorithm)
         else:
-            deleteAttack(G, hostsList , firstKthPaths, timeSlotsAmount, nbOfTSNFlows, pFlow, TSNCountWeight, bandwidthWeight, hopCountWeight,
+            return deleteAttack(G, hostsList , firstKthPaths, timeSlotsAmount, nbOfTSNFlows, pFlow, TSNCountWeight, bandwidthWeight, hopCountWeight,
                          typeOfSecurityAttack, attackRate, attackStartTime, typeofSchedulingAlgorithm)
 
 
@@ -3857,48 +3861,81 @@ def testSecurityImpact(typeOfSecurityAttack, attackRate, attackStartTime, typeof
 #     # return scheduledCounter/routedCounter
 
 
+def runSimulator(typeOfSecurityAttack, intensivityOfTheAttack, attackStartTime, typeofSchedulingAlgorithm,simulatorAmountOfRuns):
+    schedulingAlgorithms = ['SWTS','SWOTS_ASAP','SWOTS_ASAP_WS','SWOTS_AEAP','SWOTS_AEAP_WS']
+    try:
+        simulatorAmountOfRuns = int(simulatorAmountOfRuns)
+    except:
+        errorMessage = 'Enter a correct value for simulatorAmountOfRuns variable'
+        raise ValueError(errorMessage)
+
+
+    if(typeofSchedulingAlgorithm == 'all'):
+        if ("," in attackStartTime):
+            if ("," in intensivityOfTheAttack):
+                pass
+
+            else:
+                if ("," in intensivityOfTheAttack):
+                    pass
 
 
 
+        else:
+            if ("," in intensivityOfTheAttack):
+                pass
+
+            else:
+                pass
 
 
 
+    else:
+        if("," in attackStartTime):
+            if ("," in intensivityOfTheAttack):
+                pass
+
+            else:
+                pass
 
 
 
+        else:
+            if ("," in intensivityOfTheAttack):
+                pass
+
+            else:
+
+                try:
+                    intensivityOfTheAttack = float(intensivityOfTheAttack)
+                except:
+                    errorMessage = 'Enter a correct value for intensivityOfTheAttack variable'
+                    raise ValueError(errorMessage)
+
+                try:
+                    attackStartTime = float(attackStartTime)
+                except:
+                    errorMessage = 'Enter a correct value for attackStartTime variable'
+                    raise ValueError(errorMessage)
+
+                try:
+                    typeofSchedulingAlgorithm = int(typeofSchedulingAlgorithm)
+                except:
+                    errorMessage = 'Enter a correct value for typeofSchedulingAlgorithm variable'
+                    raise ValueError(errorMessage)
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+                listOfResults = []
+                for i in range(simulatorAmountOfRuns):
+                    result = testSecurityImpact(typeOfSecurityAttack, intensivityOfTheAttack, attackStartTime, typeofSchedulingAlgorithm)
+                    listOfResults.append(result)
+                    # print statements
+                    print('The total number of real TSN flows: {}'.format(result.__getitem__(0)))
+                    print('nb of total routed flows (real and unreal): {}'.format(result.__getitem__(1)))
+                    print('nb of routed real flows: {}'.format(result.__getitem__(2)))
+                    print('nb of scheduled flows using {}: {}'.format(schedulingAlgorithms.__getitem__(typeofSchedulingAlgorithm),result.__getitem__(3)))
+                    print('The percentage of scheduled flows to routed flows: {}%'.format(round(result.__getitem__(4),2)))
 
 
 def main():
@@ -3910,22 +3947,35 @@ def main():
                                         #                                                           2 -> delete attack (from the end)
                                         #                                                           3 -> delete attack (random position)
 
-    intensivityOfTheAttack = 0.6        # How strong is the attack (where 0 is none and 1 is all)
+    intensivityOfTheAttack = '0.6'        # How strong is the attack (where 0 is none and 1 is all)
+                                        # Note: you can use this format 'startVelue,endValue,incrementValue' as a String to run the simulator several times
+                                        #           and change the intensivity of the attack from startVelue to endValue with an increment of incrementValue
+                                        #           E.g.: '0,1,0.05' increase intensivity of the attack for each run by 0.05 starting from 0 to 1
 
-    attackStartTime = 0               # when the attack will start (0   = at the beginning
+    attackStartTime = '0'                 # when the attack will start (0   = at the beginning
                                         #                             1   = at the end
-                                        #                             0.5 = after trying to schedule 50% of TSN flows
+                                        #                             0.5 = after trying to schedule 50% of TSN flows)
+                                        # Note: you can use this format 'startVelue,endValue,incrementValue' as a String to run the simulator several times
+                                        #           and change the start time from startVelue to endValue with an increment of incrementValue
+                                        #           E.g.: '0,1,0.05' increase the start time of the attack for each run by 0.05 starting from 0 to 1
 
-    typeofSchedulingAlgorithm = 0       # The used scheduling algorithm (0 = SWTS
+    typeofSchedulingAlgorithm = '0'       # The used scheduling algorithm (0 = SWTS
                                         #                                1 = SWOTS_ASAP
                                         #                                2 = SWOTS_ASAP_WS
                                         #                                3 = SWOTS_AEAP
                                         #                                4 = SWOTS_AEAP_WS
+                                        #                                'all' = to use all the scheduling algorithms each one)
+
+    simulatorAmountOfRuns = '1'           # How many times the simulator will run (from 1 to infinite). E.g., 2 will make the Simulator run twice. If we choose 'all' in 'typeofSchedulingAlgorithm',
+                                        #       it will run each algorithm twice, which leads to 10 runs. The same apply for 'intensivityOfTheAttack' and 'attackStartTime'
+                                        # If a wrong value is entered (e.g., 0, Negative number, or a String), it will be automatically changed to 1.
+                                        #       Also, a larger value will lead to a larger running time
+                                        #
 
     ###########################################
 
-    testSecurityImpact(typeOfSecurityAttack, intensivityOfTheAttack, attackStartTime, typeofSchedulingAlgorithm
-                       )
+    runSimulator(typeOfSecurityAttack, intensivityOfTheAttack, attackStartTime, typeofSchedulingAlgorithm, simulatorAmountOfRuns)
+
     #measureApproixmateTimeofConfederatedControllersDesgin(4)
 
 
@@ -3946,4 +3996,5 @@ def main():
 
 
 
-main()
+if __name__== "__main__":
+   main()
