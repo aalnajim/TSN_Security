@@ -4127,7 +4127,7 @@ def simulateCase1(typeOfSecurityAttack, intensivityOfTheAttack, attackStartTime,
         process.join()
 
     simulationParameters = (simulatorAmountOfRuns, schedulingAlgorithms.__getitem__(typeofSchedulingAlgorithm),attackTypes.__getitem__(typeOfSecurityAttack), intensivityOfTheAttack, attackStartTime)
-    if(attackTypes in [0,1]):
+    if(typeOfSecurityAttack in [0,1]):
         resultsStatistics = saveResults.writeInsertResultsToFile(listOfResults, simulationParameters, now)
     else:
         if(collisionResolveMethod != -1 and collisionResolveSelectAlgorithm != -1):
